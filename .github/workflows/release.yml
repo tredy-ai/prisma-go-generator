@@ -1,0 +1,113 @@
+# Every commit that lands on main is tested. If the Conventional Commits since the last vX.Y.Z
+# tag call for a release (fix: patch, feat: minor, "!" or BREAKING CHANGE: major), the package is
+# published to npm as @tredy-ai/prisma-go-generator and the commit is tagged.
+#
+# The version lives in git tags. package.json is stamped with it at publish time and never
+# committed back, because CI cannot push to main.
+#
+# A commit message containing [ci skip] or [skip ci] stops GitHub from starting this workflow.
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Back-to-back merges queue, so each run sees the tag the one before it pushed.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash # explicit bash adds -o pipefail
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.next.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the version comes from the tags and the commits since the last one
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      # A commit that already carries a version tag is a re-run of a release that got as far as
+      # tagging: keep that version so the publish job can finish the job.
+      - name: Next version
+        id: next
+        run: |
+          tag=$(git tag --points-at HEAD --list 'v[0-9]*' | head -n 1)
+          if [ -n "$tag" ]; then
+            version=${tag#v}
+          else
+            version=$(node scripts/next-version.ts)
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "${version:-no release}"
+
+  publish:
+    needs: [test, version]
+    if: needs.version.outputs.version != ''
+    # npm's trusted publishing only accepts GitHub-hosted runners.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the tag and the GitHub release
+      id-token: write # npm trusted publishing (OIDC) and provenance
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 12.17.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # `npm publish` builds dist/ through the prepack script and moves the `latest` dist-tag.
+      # Skipped when this version is already on npm, so a failed run can be re-run safely.
+      - name: Publish to npm
+        env:
+          # npm prefers trusted publishing (OIDC) when the package has it configured. The token is
+          # only needed for the first publish, before the package exists; delete the secret after.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm pkg set version="$VERSION"
+          if npm view "@tredy-ai/prisma-go-generator@$VERSION" version >/dev/null 2>&1; then
+            echo "$VERSION is already published"
+            exit 0
+          fi
+          npm publish --access public
+
+      # Tag last, so a tag always points at a version that is on npm.
+      - name: Tag and create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "v$VERSION is already released"
+            exit 0
+          fi
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --generate-notes

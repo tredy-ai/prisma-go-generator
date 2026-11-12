@@ -29,7 +29,7 @@ With no options set, the output is what [prisma2go](https://github.com/tredy-ai/
 
 ## Status
 
-Version 0.1.0, not yet published to a package registry. Tested against Prisma 7.10 and Go 1.27.
+Pre-1.0: options and output may still change between minor versions. Tested against Prisma 7.10 and Go 1.27.
 
 ## Requirements
 
@@ -281,6 +281,34 @@ The tests are in three layers:
 | Unit | `test/*.test.ts` | Naming, type mapping, option parsing, rendering and layouts, against small hand-built schemas. The prisma2go test cases are carried over. |
 | End to end | `test/e2e.test.ts` | Runs the Prisma CLI over `test/e2e/schema` with four generator blocks and compares each file with `test/e2e/expected`. `task test:update` rewrites the expected files. |
 | Go | `task test:go`, `task examples` | Builds and vets the generated code, and runs the examples' tests. |
+
+## Releasing
+
+Releases are cut by CI from commit messages. Nobody edits a version by hand.
+
+1. Open a pull request against `main`. `ci.yml` runs the checks.
+2. Squash-merge it with a [Conventional Commits](https://www.conventionalcommits.org/) message. That message decides the release:
+
+   | Commit message | Release |
+   |---|---|
+   | `fix:`, `perf:`, `hotfix:`, `patch:` | patch |
+   | `feat:` | minor |
+   | `feat!:`, `fix!:`, or a `BREAKING CHANGE:` footer | major (minor while the version is below 1.0.0) |
+   | `docs:`, `chore:`, `ci:`, `test:`, `refactor:`, anything else | none |
+
+3. `release.yml` runs the checks again on `main`, then works out the next version from every commit since the last `vX.Y.Z` tag, taking the largest bump.
+4. It publishes `@tredy-ai/prisma-go-generator` to npm with that version and the `latest` tag, then creates the `vX.Y.Z` tag and a GitHub release with generated notes.
+
+Put `[ci skip]` in the commit message to merge without starting the release workflow at all. GitHub does the skipping.
+
+The version is kept in git tags. `package.json` says `0.0.0` in the repository and is stamped with the real version when the package is published, because CI cannot commit to `main`.
+
+A failed release can be re-run: publishing is skipped when the version is already on npm, and tagging when the release already exists.
+
+### One-time setup
+
+- **npm.** The workflow publishes by [trusted publishing](https://docs.npmjs.com/trusted-publishers/), which needs the package to exist first. For the first release, add an npm access token that may publish to the `@tredy-ai` scope as the repository secret `NPM_TOKEN`. After that release, add a trusted publisher to the package on npmjs.com (organisation `tredy-ai`, repository `prisma-go-generator`, workflow `release.yml`) and delete the secret.
+- **GitHub.** The repository has to be public for npm to attach provenance.
 
 ## Acknowledgements
 

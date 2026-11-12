@@ -1,6 +1,6 @@
 {
   "name": "@tredy-ai/prisma-go-generator",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "description": "Prisma generator that emits Go structs and enums from your Prisma schema",
   "license": "MIT",
   "author": "Tredy AI, Inc.",
