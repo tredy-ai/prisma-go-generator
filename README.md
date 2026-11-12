@@ -66,6 +66,7 @@ Every option is a string, or a list of strings, in the generator block. `output`
 | `types` | `[]` | Go type overrides. See [Type mapping](#type-mapping). |
 | `optionalType` | `pointer` | How an optional column is typed: `*T`, or a generic wrapper such as `database/sql.Null`. |
 | `enumType` | `int` | Go type behind enums: any integer type (`int`, `uint8`, ...) or `string`. |
+| `enumStart` | `"0"` | Value of an integer enum's first constant. See [Enums](#enums). |
 | `enumer` | `"true"` for integer enums | Run enumer for every enum after generating. |
 | `enumerArgs` | `["-json", "-sql", "-text", "-trimprefix={name}"]` | Arguments passed to enumer after `-type={name}`. |
 | `enumDirective` | `enumer -type={name}` plus `enumerArgs` | The `//go:generate` line above each enum. Empty for none. |
@@ -161,6 +162,17 @@ const (
 )
 ```
 
+`enumStart` sets the value of the first constant, and the rest count up from it. With `enumStart = "1"` Go's zero value is not one of the enum's values, so an unset field can be told apart from the first value:
+
+```go
+const (
+	RoleAdmin Role = iota + 1
+	RoleUser
+)
+```
+
+It takes a non-negative integer and applies to integer enums only. enumer does not reject the zero value: `IsARole()` reports false for it, while `String()`, `Value()` and `MarshalJSON` return `Role(0)` without an error.
+
 With `enumType = "string"` the constants hold the value stored in the database (the `@map` name if there is one), and nothing else needs to run:
 
 ```go
@@ -250,7 +262,7 @@ These are unchanged so that existing output does not move. Each can be worked ar
 
 - A `@@unique` group is listed twice in the comment above a model, once from each place Prisma reports it.
 - Enum constants are the enum name followed by the value in Pascal case, so `FDLStatus.FDL_STATUS_DRAFT` becomes `FDLStatusFdlStatusDraft`.
-- An integer enum's first value is zero, and `omitempty` drops a zero from JSON. A defaulted enum column holding its first value is therefore left out when marshalled. Use `enumType = "string"` or `omitempty = []` if that matters to you.
+- An integer enum's first value is zero, and `omitempty` drops a zero from JSON. A defaulted enum column holding its first value is therefore left out when marshalled. Use `enumStart = "1"`, `enumType = "string"` or `omitempty = []` if that matters to you.
 - Names are not rewritten to Go initialisms unless you list them: `userId` becomes `UserId`, or `UserID` with `initialisms = ["ID"]`.
 - The first line of the file is directly above the package clause, so Go reads it as the package comment.
 

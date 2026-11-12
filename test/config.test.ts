@@ -83,6 +83,21 @@ describe('parseConfig', () => {
     }
   });
 
+  it('starts integer enums at zero unless enumStart says otherwise', () => {
+    expect(config().enumStart).toBe(0);
+    expect(config({ enumStart: '1' }).enumStart).toBe(1);
+    expect(config({ enumType: 'uint8', enumStart: '10' }).enumStart).toBe(10);
+    for (const enumStart of ['-1', '1.5', 'one', '', '1e3']) {
+      expect(() => config({ enumStart })).toThrow(/enumStart must be a non-negative integer/);
+    }
+    expect(() => config({ enumStart: ['1', '2'] })).toThrow(/enumStart must be a single string/);
+  });
+
+  it('refuses a non-zero enumStart for string enums', () => {
+    expect(() => config({ enumType: 'string', enumStart: '1' })).toThrow(/enumStart needs an integer enumType/);
+    expect(config({ enumType: 'string', enumStart: '0' }).enumStart).toBe(0);
+  });
+
   it('picks the layout from the emit flags and refuses two at once', () => {
     expect(config({ emitPerFile: 'true' }).layout).toBe('perFile');
     expect(config({ emitPerModel: 'true' }).layout).toBe('perModel');

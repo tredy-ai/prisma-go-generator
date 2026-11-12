@@ -43,6 +43,7 @@ generator permodel {
   inputs        = ["where", "create"]
   relations     = "false"
   enumType      = "uint8"
+  enumStart     = "1"
   enumDirective = "stringer -type={name}"
   enumer        = "false"
   types         = ["db.Uuid=string"]

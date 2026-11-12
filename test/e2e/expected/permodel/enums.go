@@ -7,7 +7,7 @@ package permodel
 type Role uint8
 
 const (
-	RoleAdmin Role = iota
+	RoleAdmin Role = iota + 1
 	RoleSuperUser
 	RoleMemberOnly
 )
@@ -16,6 +16,6 @@ const (
 type FDLStatus uint8
 
 const (
-	FDLStatusFdlStatusDraft FDLStatus = iota
+	FDLStatusFdlStatusDraft FDLStatus = iota + 1
 	FDLStatusFdlStatusApproved
 )

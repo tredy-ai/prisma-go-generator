@@ -30,6 +30,8 @@ export interface Config {
   optionalType: string;
   /** The Go type behind every enum: an integer type (iota constants) or `string`. */
   enumType: string;
+  /** The value of an integer enum's first constant; the following ones count up from it. */
+  enumStart: number;
   /** `//go:generate` command per enum, `{name}` being the Go enum type; empty for none. */
   enumDirective: string;
   /** Run enumer for every enum after writing the files. */
@@ -70,6 +72,7 @@ const OPTIONS = [
   'types',
   'optionalType',
   'enumType',
+  'enumStart',
   'enumDirective',
   'enumer',
   'enumerArgs',
@@ -150,6 +153,10 @@ export function parseConfig(generator: GeneratorBlock): Config {
   const enumType = str('enumType', 'int');
   const integerEnums = INTEGER_TYPES.includes(enumType);
   if (!integerEnums && enumType !== 'string') throw fail(`enumType must be "string" or one of ${INTEGER_TYPES.join(', ')}, got "${enumType}"`);
+  const enumStartValue = str('enumStart', '0');
+  if (!/^\d+$/.test(enumStartValue)) throw fail(`enumStart must be a non-negative integer, got "${enumStartValue}"`);
+  const enumStart = Number(enumStartValue);
+  if (enumStart > 0 && !integerEnums) throw fail('enumStart needs an integer enumType: string enums hold the database value, not a number');
   const enumer = bool('enumer', integerEnums);
   if (enumer && !integerEnums) throw fail('enumer = "true" needs an integer enumType: enumer only handles integer enums');
   const enumerArgs = list('enumerArgs', DEFAULT_ENUMER_ARGS);
@@ -179,6 +186,7 @@ export function parseConfig(generator: GeneratorBlock): Config {
     types,
     optionalType: str('optionalType', 'pointer'),
     enumType,
+    enumStart,
     enumDirective: str('enumDirective', integerEnums ? ['enumer -type={name}', ...enumerArgs].join(' ') : ''),
     enumer,
     enumerArgs,

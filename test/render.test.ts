@@ -134,6 +134,11 @@ describe('render: options', () => {
     expect(out).toContain('//go:generate enumer -type=Role');
   });
 
+  it('enumStart offsets the first constant of an integer enum', () => {
+    expect(render(fixture('basic'), config({ enumStart: '1' }))).toContain('const (\n\tRoleAdmin Role = iota + 1\n\tRoleUser\n)');
+    expect(render(fixture('basic'), config({ enumStart: '0' }))).toContain('const (\n\tRoleAdmin Role = iota\n\tRoleUser\n)');
+  });
+
   it('enumDirective replaces or removes the go:generate line', () => {
     expect(render(fixture('basic'), config({ enumDirective: '' }))).not.toContain('go:generate');
     expect(render(fixture('basic'), config({ enumDirective: 'stringer -type={name}' }))).toContain(
