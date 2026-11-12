@@ -299,6 +299,8 @@ Releases are cut by CI from commit messages. Nobody edits a version by hand.
 3. `release.yml` runs the checks again on `main`, then works out the next version from every commit since the last `vX.Y.Z` tag, taking the largest bump.
 4. It publishes `@tredy-ai/prisma-go-generator` to npm with that version and the `latest` tag, then creates the `vX.Y.Z` tag and a GitHub release with generated notes.
 
+The same version is also published to GitHub Packages. npmjs.com is the public home; the copy is for setups whose `.npmrc` sends the whole `@tredy-ai` scope to `npm.pkg.github.com`, where an npmjs-only package would not be found.
+
 Put `[ci skip]` in the commit message to merge without starting the release workflow at all. GitHub does the skipping, and a commit marked that way is never counted towards a later release either.
 
 The version is kept in git tags. `package.json` says `0.0.0` in the repository and is stamped with the real version when the package is published, because CI cannot commit to `main`.

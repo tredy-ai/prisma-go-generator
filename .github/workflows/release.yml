@@ -59,6 +59,7 @@ jobs:
     permissions:
       contents: write # create the tag and the GitHub release
       id-token: write # npm trusted publishing (OIDC) and provenance
+      packages: write # the copy on GitHub Packages
     env:
       VERSION: ${{ needs.version.outputs.version }}
     steps:
@@ -100,6 +101,21 @@ jobs:
             exit 0
           fi
           npm publish # public, to npmjs.com: see publishConfig in package.json
+
+      # Tredy's own repositories, and machines set up for them, map the @tredy-ai scope to GitHub
+      # Packages, and a scope can only point at one registry. The same version goes there too, so
+      # those installs resolve. Skipped when it is already there, like the step above.
+      - name: Publish to GitHub Packages
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ github.token }}
+        run: |
+          scope=--@tredy-ai:registry=https://npm.pkg.github.com
+          npm config set //npm.pkg.github.com/:_authToken "$GITHUB_PACKAGES_TOKEN"
+          if npm view "@tredy-ai/prisma-go-generator@$VERSION" version "$scope" >/dev/null 2>&1; then
+            echo "$VERSION is already on GitHub Packages"
+            exit 0
+          fi
+          npm publish "$scope"
 
       # Tag last, so a tag always points at a version that is on npm.
       - name: Tag and create the GitHub release
