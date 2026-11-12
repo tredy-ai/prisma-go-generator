@@ -43,17 +43,11 @@ jobs:
         with:
           node-version: '24'
 
-      # A commit that already carries a version tag is a re-run of a release that got as far as
-      # tagging: keep that version so the publish job can finish the job.
+      # Prints nothing when no commit since the last tag calls for a release.
       - name: Next version
         id: next
         run: |
-          tag=$(git tag --points-at HEAD --list 'v[0-9]*' | head -n 1)
-          if [ -n "$tag" ]; then
-            version=${tag#v}
-          else
-            version=$(node scripts/next-version.ts)
-          fi
+          version=$(node scripts/next-version.ts)
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "${version:-no release}"
 

@@ -40,19 +40,27 @@ export function nextVersion(current: string, messages: string[]): string | null 
   return `${major}.${minor}.${patch + 1}`;
 }
 
-function git(...args: string[]): string {
-  return execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
-}
+/** The version HEAD of the repository at `cwd` should be released as, or null for no release. */
+export function releaseVersion(cwd: string): string | null {
+  const git = (...args: string[]): string =>
+    execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
 
-if (import.meta.main) {
+  // A commit that already carries a version tag is a re-run of a release that got as far as
+  // tagging: keep that version so the run can finish.
+  const [atHead] = git('tag', '--points-at', 'HEAD', '--list', 'v[0-9]*').split('\n');
+  if (atHead) return atHead.slice(1);
+
   let lastTag = '';
   try {
     lastTag = git('describe', '--tags', '--abbrev=0', '--match', 'v[0-9]*');
   } catch {
     // no release yet
   }
-  const range = lastTag ? `${lastTag}..HEAD` : 'HEAD';
-  const messages = git('log', '--format=%B%x00', range).split('\0').map((m) => m.trim());
-  const next = nextVersion(lastTag.replace(/^v/, '') || '0.0.0', messages);
-  if (next) console.log(next);
+  const messages = git('log', '--format=%B%x00', lastTag ? `${lastTag}..HEAD` : 'HEAD').split('\0');
+  return nextVersion(lastTag.slice(1) || '0.0.0', messages.map((m) => m.trim()));
+}
+
+if (import.meta.main) {
+  const version = releaseVersion(process.cwd());
+  if (version) console.log(version);
 }

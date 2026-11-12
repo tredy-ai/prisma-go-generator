@@ -1,5 +1,40 @@
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { bumpFor, nextVersion } from '../scripts/next-version.js';
+import { bumpFor, nextVersion, releaseVersion } from '../scripts/next-version.js';
+
+describe('releaseVersion, against a real repository', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'next-version-'));
+  const git = (...args: string[]): void => {
+    execFileSync('git', ['-c', 'user.name=test', '-c', 'user.email=test@example.com', '-c', 'commit.gpgsign=false', ...args], { cwd: repo });
+  };
+  const commit = (...messages: string[]): void => git('commit', '-q', '--allow-empty', ...messages.flatMap((m) => ['-m', m]));
+
+  // One history, walked forwards: each step is a merge landing on main.
+  it('follows the releases a history calls for', () => {
+    git('init', '-q');
+    commit('feat: first cut');
+    expect(releaseVersion(repo)).toBe('0.1.0');
+
+    git('tag', 'v0.1.0'); // a lightweight tag, as `gh release create` makes
+    expect(releaseVersion(repo), 're-run of a tagged commit keeps its version').toBe('0.1.0');
+
+    commit('docs: clarify options (#2)');
+    expect(releaseVersion(repo)).toBeNull();
+
+    commit('feat: not ready yet [ci skip]');
+    expect(releaseVersion(repo)).toBeNull();
+
+    commit('fix: handle empty enums (#3)', '* fix: first attempt\n* test: cover it\n* chore: tidy');
+    expect(releaseVersion(repo), 'reaches back over the docs and skipped commits').toBe('0.1.1');
+
+    git('tag', 'v0.1.1');
+    commit('feat!: rename structTags (#4)');
+    expect(releaseVersion(repo)).toBe('0.2.0');
+  });
+});
 
 describe('bumpFor', () => {
   it.each([
