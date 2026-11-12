@@ -35,7 +35,7 @@ Pre-1.0: options and output may still change between minor versions. Tested agai
 
 - Node.js 20.19 or later and Prisma 7.
 - `gofmt` on your `PATH` when `prisma generate` runs. The generator formats its output with it, so the files never change when you run `gofmt` yourself. Set `gofmt = "false"` to do without.
-- [enumer](https://github.com/dmarkham/enumer) on your `PATH` if you want `String`, JSON and SQL methods on integer enums. Without it the generator prints a warning and carries on.
+- [enumer](https://github.com/dmarkham/enumer) on your `PATH` if you want `String`, JSON and SQL methods on integer enums. Without it the generator prints a warning and carries on. Under Go 1.27 use enumer v1.7.2 or later: v1.6.3 cannot load packages there and fails with `package "time" without types was imported`.
 - Go 1.18 or later to compile the query inputs, which use generics.
 
 ## Install
@@ -272,7 +272,7 @@ task ci        # everything CI runs
 task --list
 ```
 
-`task ci` needs Go 1.27 or later and enumer. It typechecks, runs the tests, compiles and vets the Go generated from the test schema, regenerates the examples, and fails if they differ from what is committed.
+`task ci` needs Go 1.27 or later. It builds its own enumer into `.bin/`, at the version pinned in `Taskfile.yml`, so the examples do not depend on the enumer you have installed. It typechecks, runs the tests, compiles and vets the Go generated from the test schema, regenerates the examples, and fails if they differ from what is committed.
 
 The tests are in three layers:
 

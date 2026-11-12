@@ -48,9 +48,7 @@ jobs:
         with:
           version: 3.54.0
 
-      - name: Install enumer
-        run: go install github.com/dmarkham/enumer@v1.6.3
-
+      # enumer is built by `task tools`, at the version pinned in Taskfile.yml.
       - name: Install dependencies
         run: task install
 

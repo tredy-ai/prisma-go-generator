@@ -4,6 +4,13 @@ version: '3'
 
 set: [pipefail]
 
+vars:
+  # enumer's generated code differs between releases, and v1.6.x cannot load packages under Go 1.27.
+  ENUMER_VERSION: v1.7.2
+  # Puts the enumer built by `task tools` ahead of whichever one is installed globally, so the
+  # examples come out the same on every machine and in CI. (Task's `env:` cannot override PATH.)
+  USE_TOOLS: export PATH="{{.ROOT_DIR}}/.bin:$PATH"
+
 tasks:
   default:
     silent: true
@@ -43,14 +50,21 @@ tasks:
       - for: [defaults, custom, permodel, poststeps]
         cmd: cd test/e2e/out/{{.ITEM}} && go mod tidy && go build ./... && go vet ./...
 
-  examples:
-    desc: Regenerate every example, run go generate over it, then vet and test its Go code (needs enumer)
-    deps: [build]
+  tools:
+    desc: Build the pinned enumer into .bin/
     cmds:
-      - pnpm -r --filter './examples/*' run generate
+      - GOBIN="{{.ROOT_DIR}}/.bin" go install github.com/dmarkham/enumer@{{.ENUMER_VERSION}}
+    status:
+      - go version -m .bin/enumer | grep -q "enumer[[:space:]]{{.ENUMER_VERSION}}"
+
+  examples:
+    desc: Regenerate every example, run go generate over it, then vet and test its Go code
+    deps: [build, tools]
+    cmds:
+      - '{{.USE_TOOLS}} && pnpm -r --filter "./examples/*" run generate'
       - for: [basic, crud-inputs]
         # go generate reruns the enum directives: the result must match what the generator's own enumer run left
-        cmd: cd examples/{{.ITEM}} && go generate ./... && test -z "$(gofmt -l .)" && go vet ./... && go test ./...
+        cmd: '{{.USE_TOOLS}} && cd examples/{{.ITEM}} && go generate ./... && test -z "$(gofmt -l .)" && go vet ./... && go test ./...'
 
   examples:check:
     desc: Fail if the committed examples differ from what the generator writes now
