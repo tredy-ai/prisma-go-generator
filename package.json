@@ -13,12 +13,13 @@
   "bin": {
     "prisma-go-generator": "bin/prisma-go-generator.js"
   },
-  "files": ["bin", "dist"],
+  "files": ["bin", "dist", "NOTICE"],
   "engines": {
     "node": ">=20.19"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "prepack": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "tsc -p tsconfig.build.json && vitest run"
   },

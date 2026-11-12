@@ -172,11 +172,13 @@ const (
 )
 ```
 
+The generator's own enumer run and a later `go generate` write identical files, so you can use either or both.
+
 To use a tool other than enumer, turn enumer off and set the directive: `enumer = "false"`, `enumDirective = "stringer -type={name}"`.
 
 ## Query inputs
 
-`inputs` turns on Prisma's query input types as Go structs. They carry JSON tags with Prisma's own field names, so a value marshals to the shape Prisma's client accepts.
+`inputs` turns on Prisma's query input types as Go structs. They carry JSON tags with Prisma's field and operator names, so a value marshals to Prisma-style JSON. They are modelled on Prisma's client inputs but are not a drop-in for them: see [Differences from Prisma's inputs](#differences-from-prismas-inputs).
 
 | Family | Types generated per model |
 |---|---|
@@ -200,9 +202,18 @@ where := store.UserWhereInput{
 }
 ```
 
+`new` with a value, as used above, needs Go 1.26. On earlier versions take the address of a variable instead.
+
 The filters are generic over the column's Go type, so they follow your `types` overrides: `Filter[T]` (equality), `RangeFilter[T]` (adds `lt`, `lte`, `gt`, `gte`), `StringFilter` (adds `contains`, `startsWith`, `endsWith`, `mode`), `ListFilter[T]` for scalar lists, and a `Nullable` variant of each with `IsNull`. Updates use `FieldUpdate[T]`, `NumericFieldUpdate[T]` (`increment`, `decrement`, `multiply`, `divide`), `ListFieldUpdate[T]` and their `Nullable` variants.
 
-Not generated yet: nested relation writes (`create`, `connect`, `connectOrCreate` and `upsert` inside a create or update), which is why the create and update inputs are the `Unchecked` forms that take foreign keys directly, and the aggregate and group-by inputs.
+### Differences from Prisma's inputs
+
+- Create and update inputs are the `Unchecked` forms, which take foreign keys directly. Nested relation writes (`create`, `connect`, `connectOrCreate` and `upsert` inside a create or update) are not generated.
+- Aggregate and group-by inputs are not generated.
+- A nullable filter has `isNull`. Prisma writes that as `equals: null`, which a Go pointer cannot tell apart from "not set".
+- `WhereUniqueInput` lists the columns of a composite key or unique group as separate fields. Prisma nests them in one compound field.
+- Order-by inputs cover columns and to-one relations, not counts of to-many relations.
+- A nil slice and an empty slice both drop out of the JSON, so `in: []` cannot be expressed.
 
 ## Layouts
 

@@ -44,12 +44,13 @@ tasks:
         cmd: cd test/e2e/out/{{.ITEM}} && go mod tidy && go build ./... && go vet ./...
 
   examples:
-    desc: Regenerate every example, then vet and test its Go code (needs enumer)
+    desc: Regenerate every example, run go generate over it, then vet and test its Go code (needs enumer)
     deps: [build]
     cmds:
       - pnpm -r --filter './examples/*' run generate
       - for: [basic, crud-inputs]
-        cmd: cd examples/{{.ITEM}} && test -z "$(gofmt -l .)" && go vet ./... && go test ./...
+        # go generate reruns the enum directives: the result must match what the generator's own enumer run left
+        cmd: cd examples/{{.ITEM}} && go generate ./... && test -z "$(gofmt -l .)" && go vet ./... && go test ./...
 
   examples:check:
     desc: Fail if the committed examples differ from what the generator writes now
