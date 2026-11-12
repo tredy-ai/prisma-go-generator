@@ -32,6 +32,13 @@ describe('nextVersion', () => {
     expect(nextVersion('1.2.3', ['feat: a', 'feat!: b'])).toBe('2.0.0');
   });
 
+  it('never counts a commit marked [ci skip], even when a later commit starts the workflow', () => {
+    expect(bumpFor('feat: half-finished option [ci skip]')).toBeNull();
+    expect(bumpFor('fix: a\n\n[skip ci]')).toBeNull();
+    expect(nextVersion('1.2.3', ['feat!: big [ci skip]', 'docs: a'])).toBeNull();
+    expect(nextVersion('1.2.3', ['feat: skipped [ci skip]', 'fix: real'])).toBe('1.2.4');
+  });
+
   it('returns null when nothing releases', () => {
     expect(nextVersion('1.2.3', ['docs: a', 'chore: b'])).toBeNull();
     expect(nextVersion('1.2.3', [])).toBeNull();

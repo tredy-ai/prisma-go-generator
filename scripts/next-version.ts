@@ -8,8 +8,13 @@ export type Bump = 'major' | 'minor' | 'patch';
 const PATCH_TYPES = new Set(['fix', 'perf', 'hotfix', 'patch']);
 const RANK: Record<Bump, number> = { patch: 1, minor: 2, major: 3 };
 
+// The markers GitHub honours to not start a workflow. A commit carrying one never releases, not
+// even when a later commit starts the workflow and the scan reaches back over it.
+const SKIP = /\[(?:ci skip|skip ci|no ci|skip actions|actions skip)\]/i;
+
 /** The bump one commit message (subject and body) asks for, or null for none. */
 export function bumpFor(message: string): Bump | null {
+  if (SKIP.test(message)) return null;
   const header = /^(\w+)(?:\([^)]*\))?(!)?:\s/.exec(message);
   if (!header) return null;
   const type = (header[1] ?? '').toLowerCase();
