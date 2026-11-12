@@ -5,7 +5,7 @@ package permodel
 
 // Profile represents the Profile table.
 type Profile struct {
-	Id     int32   `json:"id,omitempty" db:"id"` // primary key
+	Id     int32   `json:"id" db:"id"` // primary key
 	Bio    *string `json:"bio,omitempty" db:"bio"`
 	UserId string  `json:"userId" db:"user_id"`
 }

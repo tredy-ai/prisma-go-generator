@@ -1,4 +1,4 @@
-import { basename } from 'node:path';
+import { basename, isAbsolute, posix, win32 } from 'node:path';
 
 export const NAMINGS = ['field', 'column', 'snake', 'camel', 'pascal'] as const;
 export type Naming = (typeof NAMINGS)[number];
@@ -22,7 +22,7 @@ export interface Config {
   fileName: string;
   package: string;
   structTags: StructTag[];
-  /** Tag keys that get `,omitempty` on optional and defaulted columns. */
+  /** Tag keys that get `,omitempty` on optional columns. */
   omitempty: ReadonlySet<string>;
   /** Go type overrides keyed by Prisma scalar (`Int`) or native type (`db.Uuid`). */
   types: Record<string, string>;
@@ -30,6 +30,8 @@ export interface Config {
   optionalType: string;
   /** The Go type behind every enum: an integer type (iota constants) or `string`. */
   enumType: string;
+  /** The value of an integer enum's first constant; the following ones count up from it. */
+  enumStart: number;
   /** `//go:generate` command per enum, `{name}` being the Go enum type; empty for none. */
   enumDirective: string;
   /** Run enumer for every enum after writing the files. */
@@ -43,10 +45,19 @@ export interface Config {
   tableNameMethod: boolean;
   gofmt: boolean;
   inputs: InputFamily[];
+  /**
+   * Directory below `dir`, with `/` separators, that the query inputs are written to as a package
+   * of their own. Empty keeps them in the models package.
+   */
+  inputsOutDir: string;
+  /** Go package name of `inputsOutDir`. */
+  inputsPackage: string;
   generateGoMod: boolean;
   goModule: string;
   /** Empty means "ask the installed Go toolchain". */
   goVersion: string;
+  /** Things the user should hear about that do not stop the run. */
+  warnings: string[];
 }
 
 /** The parts of Prisma's GeneratorConfig this generator reads. */
@@ -70,6 +81,7 @@ const OPTIONS = [
   'types',
   'optionalType',
   'enumType',
+  'enumStart',
   'enumDirective',
   'enumer',
   'enumerArgs',
@@ -79,6 +91,8 @@ const OPTIONS = [
   'tableNameMethod',
   'gofmt',
   'inputs',
+  'inputsOutDir',
+  'inputsPackage',
   'generateGoMod',
   'goModule',
   'goVersion',
@@ -150,6 +164,10 @@ export function parseConfig(generator: GeneratorBlock): Config {
   const enumType = str('enumType', 'int');
   const integerEnums = INTEGER_TYPES.includes(enumType);
   if (!integerEnums && enumType !== 'string') throw fail(`enumType must be "string" or one of ${INTEGER_TYPES.join(', ')}, got "${enumType}"`);
+  const enumStartValue = str('enumStart', '0');
+  if (!/^\d+$/.test(enumStartValue)) throw fail(`enumStart must be a non-negative integer, got "${enumStartValue}"`);
+  const enumStart = Number(enumStartValue);
+  if (enumStart > 0 && !integerEnums) throw fail('enumStart needs an integer enumType: string enums hold the database value, not a number');
   const enumer = bool('enumer', integerEnums);
   if (enumer && !integerEnums) throw fail('enumer = "true" needs an integer enumType: enumer only handles integer enums');
   const enumerArgs = list('enumerArgs', DEFAULT_ENUMER_ARGS);
@@ -163,6 +181,27 @@ export function parseConfig(generator: GeneratorBlock): Config {
     if (!(INPUT_FAMILIES as readonly string[]).includes(family)) {
       throw fail(`inputs entry "${family}" must be "all" or one of ${INPUT_FAMILIES.join(', ')}`);
     }
+  }
+
+  const warnings: string[] = [];
+  let inputsOutDir = '';
+  if (raw.inputsOutDir !== undefined) {
+    const value = str('inputsOutDir', '');
+    if (isAbsolute(value) || win32.isAbsolute(value)) throw fail(`inputsOutDir must be relative to output, got "${value}"`);
+    inputsOutDir = posix.normalize(value.replaceAll('\\', '/')).replace(/\/+$/, '');
+    if (inputsOutDir === '..' || inputsOutDir.startsWith('../')) throw fail(`inputsOutDir must stay inside output, got "${value}"`);
+    if (inputsOutDir === '.') {
+      throw fail(`inputsOutDir must name a directory below output, got "${value}"; leave it out to keep the inputs with the models`);
+    }
+  }
+  const inputsPackage = str('inputsPackage', inputsOutDir === '' ? '' : posix.basename(inputsOutDir));
+  if (inputsOutDir === '') {
+    if (raw.inputsPackage !== undefined) warnings.push('inputsPackage has no effect without inputsOutDir');
+  } else {
+    if (!IDENT.test(inputsPackage)) {
+      throw fail(`"${inputsPackage}" is not a valid Go package name; set inputsPackage = "..." in the generator block`);
+    }
+    if (inputs.length === 0) warnings.push('inputsOutDir is set but inputs is empty, so no inputs are written');
   }
 
   const generateGoMod = bool('generateGoMod', false);
@@ -179,6 +218,7 @@ export function parseConfig(generator: GeneratorBlock): Config {
     types,
     optionalType: str('optionalType', 'pointer'),
     enumType,
+    enumStart,
     enumDirective: str('enumDirective', integerEnums ? ['enumer -type={name}', ...enumerArgs].join(' ') : ''),
     enumer,
     enumerArgs,
@@ -188,8 +228,11 @@ export function parseConfig(generator: GeneratorBlock): Config {
     tableNameMethod: bool('tableNameMethod', false),
     gofmt: bool('gofmt', true),
     inputs: inputs as InputFamily[],
+    inputsOutDir,
+    inputsPackage,
     generateGoMod,
     goModule,
     goVersion: str('goVersion', ''),
+    warnings,
   };
 }

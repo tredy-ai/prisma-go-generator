@@ -47,7 +47,7 @@ tasks:
     desc: Compile and vet what `task test` generated into test/e2e/out
     deps: [test]
     cmds:
-      - for: [defaults, custom, permodel, poststeps]
+      - for: [defaults, custom, permodel, poststeps, splitsingle, splitperfile, splitpermodel]
         cmd: cd test/e2e/out/{{.ITEM}} && go mod tidy && go build ./... && go vet ./...
 
   tools:

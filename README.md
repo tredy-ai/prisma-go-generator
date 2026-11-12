@@ -14,18 +14,18 @@ generator go {
 ```go
 // User - A person who can sign in.
 type User struct {
-	Id        int32     `json:"id,omitempty" db:"id"` // primary key
+	Id        int32     `json:"id" db:"id"` // primary key
 	Email     string    `json:"email" db:"email"`
 	Name      *string   `json:"name,omitempty" db:"name"`
-	Role      Role      `json:"role,omitempty" db:"role"`
-	CreatedAt time.Time `json:"createdAt,omitempty" db:"created_at"`
+	Role      Role      `json:"role" db:"role"`
+	CreatedAt time.Time `json:"createdAt" db:"created_at"`
 
 	// Relations (not persisted, populate manually)
 	Posts []Post `json:"posts,omitempty" db:"-"`
 }
 ```
 
-With no options set, the output is what [prisma2go](https://github.com/tredy-ai/prisma2go) writes. Every decision prisma2go made for you is an option here.
+With no options set, the output is what [prisma2go](https://github.com/tredy-ai/prisma2go) writes, apart from a few [differences](#differences-from-prisma2go). Every decision prisma2go made for you is an option here.
 
 ## Status
 
@@ -62,10 +62,11 @@ Every option is a string, or a list of strings, in the generator block. `output`
 | `emitPerModel` | `"false"` | Write one Go file per model, holding the struct and its inputs. Enums go to `enums.go`. |
 | `fileName` | `models.go` | File name for the single layout. |
 | `structTags` | `["json", "db"]` | Struct tags to write, in order. See [Struct tags](#struct-tags). |
-| `omitempty` | `["json"]` | Tags that get `,omitempty` on optional and defaulted columns. |
+| `omitempty` | `["json"]` | Tags that get `,omitempty` on optional columns. |
 | `types` | `[]` | Go type overrides. See [Type mapping](#type-mapping). |
 | `optionalType` | `pointer` | How an optional column is typed: `*T`, or a generic wrapper such as `database/sql.Null`. |
 | `enumType` | `int` | Go type behind enums: any integer type (`int`, `uint8`, ...) or `string`. |
+| `enumStart` | `"0"` | Value of an integer enum's first constant. See [Enums](#enums). |
 | `enumer` | `"true"` for integer enums | Run enumer for every enum after generating. |
 | `enumerArgs` | `["-json", "-sql", "-text", "-trimprefix={name}"]` | Arguments passed to enumer after `-type={name}`. |
 | `enumDirective` | `enumer -type={name}` plus `enumerArgs` | The `//go:generate` line above each enum. Empty for none. |
@@ -73,6 +74,8 @@ Every option is a string, or a list of strings, in the generator block. `output`
 | `relations` | `"true"` | Include relation fields in model structs and inputs. |
 | `tableNameMethod` | `"false"` | Add `func (User) TableName() string` to every model. |
 | `inputs` | `[]` | Query input families to generate. See [Query inputs](#query-inputs). |
+| `inputsOutDir` | | Directory below `output` to write the query inputs to, as a Go package of their own. See [Inputs in their own package](#inputs-in-their-own-package). |
+| `inputsPackage` | name of the `inputsOutDir` directory | Go package name of the inputs' directory. |
 | `gofmt` | `"true"` | Format the output with `gofmt`. |
 | `generateGoMod` | `"false"` | Write a `go.mod` into the output directory if there is none. |
 | `goModule` | | Module path for the generated `go.mod`. Required with `generateGoMod`. |
@@ -156,10 +159,29 @@ By default an enum becomes an integer type with `iota` constants, and enumer sup
 type Role int
 
 const (
-	RoleAdmin Role = iota
-	RoleUser
+	RoleAdmin Role = iota // ADMIN
+	RoleUser              // USER
 )
 ```
+
+Each constant carries the value stored in the database (the `@map` name if there is one) as a line comment. With the default arguments enumer ignores it and names the values after the constants: `Admin`, `User`. Pass `-linecomment` instead of `-trimprefix={name}` and `String()`, `Value()`, `Scan` and the JSON and text methods use the database values, `ADMIN` and `USER`:
+
+```prisma
+enumerArgs = ["-json", "-sql", "-text", "-linecomment"]
+```
+
+If you set `enumDirective` yourself, put `-linecomment` there. stringer has the same flag.
+
+`enumStart` sets the value of the first constant, and the rest count up from it. With `enumStart = "1"` Go's zero value is not one of the enum's values, so an unset field can be told apart from the first value:
+
+```go
+const (
+	RoleAdmin Role = iota + 1 // ADMIN
+	RoleUser                  // USER
+)
+```
+
+It takes a non-negative integer and applies to integer enums only. enumer does not reject the zero value: `IsARole()` reports false for it, while `String()`, `Value()` and `MarshalJSON` return `Role(0)` without an error.
 
 With `enumType = "string"` the constants hold the value stored in the database (the `@map` name if there is one), and nothing else needs to run:
 
@@ -215,6 +237,40 @@ The filters are generic over the column's Go type, so they follow your `types` o
 - Order-by inputs cover columns and to-one relations, not counts of to-many relations.
 - A nil slice and an empty slice both drop out of the JSON, so `in: []` cannot be expressed.
 
+### Inputs in their own package
+
+The inputs are written next to the models, in the same package, unless `inputsOutDir` names a directory for them. It is relative to `output` and has to stay inside it:
+
+```prisma
+generator go {
+  provider     = "prisma-go-generator"
+  output       = "../store"
+  inputs       = "all"
+  inputsOutDir = "inputs" // ../store/inputs, package inputs
+}
+```
+
+The package is named after the directory; `inputsPackage` gives it another name. The [layout](#layouts) applies to both directories:
+
+| Layout | Models directory | Inputs directory |
+|---|---|---|
+| `emitSingle` | `models.go` with enums and models | `models.go` with every input |
+| `emitPerFile` | `users.go` with the enums and models of `users.prisma` | `users.go` with the inputs of those models, `inputs.go` for the shared input types |
+| `emitPerModel` | `user.go` per model, `enums.go` | `user.go` with that model's inputs, `inputs.go` for the shared input types |
+
+A file that would hold nothing is not written.
+
+Enums stay in the models package, so the inputs import it and write `store.Role`. The models never import the inputs. The generator works out the import path of the models package from the first of these it finds:
+
+1. a `go.mod` in the output directory,
+2. `goModule`, when `generateGoMod` is about to write that `go.mod`,
+3. the nearest `go.mod` above the output directory, plus the path from there down to it,
+4. `goModule`.
+
+With none of them it stops and says so. It only looks when there are inputs to write: `inputsOutDir` with `inputs` left empty writes nothing and prints a warning, as does `inputsPackage` without `inputsOutDir`.
+
+The inputs' directory is cleaned up like the models directory, as described under [Layouts](#layouts). If you delete the generated files yourself before generating, delete those in the inputs' directory as well.
+
 ## Layouts
 
 | Layout | Files |
@@ -224,6 +280,8 @@ The filters are generic over the column's Go type, so they follow your `types` o
 | `emitPerModel` | `user.go` per model with its struct and inputs, `enums.go`, and `inputs.go` for the shared input types. |
 
 On each run the generator deletes the Go files it wrote earlier and no longer writes, such as the file of a model you removed. It recognises its own files by their first line and leaves every other file alone. With `enumer` on, it also deletes enumer output for enums that no longer exist.
+
+With `inputsOutDir` the models and the inputs are laid out separately, each in its own directory: see [Inputs in their own package](#inputs-in-their-own-package).
 
 A file name that the go tool would read as a build constraint gets `_gen` appended: a model called `UserWindows` is written to `user_windows_gen.go`.
 
@@ -250,11 +308,14 @@ These are unchanged so that existing output does not move. Each can be worked ar
 
 - A `@@unique` group is listed twice in the comment above a model, once from each place Prisma reports it.
 - Enum constants are the enum name followed by the value in Pascal case, so `FDLStatus.FDL_STATUS_DRAFT` becomes `FDLStatusFdlStatusDraft`.
-- An integer enum's first value is zero, and `omitempty` drops a zero from JSON. A defaulted enum column holding its first value is therefore left out when marshalled. Use `enumType = "string"` or `omitempty = []` if that matters to you.
 - Names are not rewritten to Go initialisms unless you list them: `userId` becomes `UserId`, or `UserID` with `initialisms = ["ID"]`.
 - The first line of the file is directly above the package clause, so Go reads it as the package comment.
 
-One thing differs: when the generated code does not parse, prisma2go wrote it unformatted and warned. This generator stops with gofmt's error instead.
+### Differences from prisma2go
+
+- An integer enum constant ends in a line comment holding the value stored in the database. See [Enums](#enums).
+- `,omitempty` goes on optional columns only. prisma2go also put it on required columns that have a default, so a row holding `false`, `0`, `""` or an enum's first value lost that key when marshalled.
+- When the generated code does not parse, prisma2go wrote it unformatted and warned. This generator stops with gofmt's error instead.
 
 ## Examples
 
@@ -279,7 +340,7 @@ The tests are in three layers:
 | Layer | Where | What it checks |
 |---|---|---|
 | Unit | `test/*.test.ts` | Naming, type mapping, option parsing, rendering and layouts, against small hand-built schemas. The prisma2go test cases are carried over. |
-| End to end | `test/e2e.test.ts` | Runs the Prisma CLI over `test/e2e/schema` with four generator blocks and compares each file with `test/e2e/expected`. `task test:update` rewrites the expected files. |
+| End to end | `test/e2e.test.ts` | Runs the Prisma CLI over `test/e2e/schema` with seven generator blocks and compares each file with `test/e2e/expected`. `task test:update` rewrites the expected files. |
 | Go | `task test:go`, `task examples` | Builds and vets the generated code, and runs the examples' tests. |
 
 ## Releasing

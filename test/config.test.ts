@@ -83,6 +83,21 @@ describe('parseConfig', () => {
     }
   });
 
+  it('starts integer enums at zero unless enumStart says otherwise', () => {
+    expect(config().enumStart).toBe(0);
+    expect(config({ enumStart: '1' }).enumStart).toBe(1);
+    expect(config({ enumType: 'uint8', enumStart: '10' }).enumStart).toBe(10);
+    for (const enumStart of ['-1', '1.5', 'one', '', '1e3']) {
+      expect(() => config({ enumStart })).toThrow(/enumStart must be a non-negative integer/);
+    }
+    expect(() => config({ enumStart: ['1', '2'] })).toThrow(/enumStart must be a single string/);
+  });
+
+  it('refuses a non-zero enumStart for string enums', () => {
+    expect(() => config({ enumType: 'string', enumStart: '1' })).toThrow(/enumStart needs an integer enumType/);
+    expect(config({ enumType: 'string', enumStart: '0' }).enumStart).toBe(0);
+  });
+
   it('picks the layout from the emit flags and refuses two at once', () => {
     expect(config({ emitPerFile: 'true' }).layout).toBe('perFile');
     expect(config({ emitPerModel: 'true' }).layout).toBe('perModel');
@@ -107,6 +122,39 @@ describe('parseConfig', () => {
     expect(config({ inputs: 'all' }).inputs).toEqual(['where', 'whereUnique', 'orderBy', 'create', 'update', 'select', 'include']);
     expect(config({ inputs: ['where', 'create'] }).inputs).toEqual(['where', 'create']);
     expect(() => config({ inputs: ['upsert'] })).toThrow(/upsert/);
+  });
+
+  it('keeps the inputs with the models unless inputsOutDir names a directory below the output', () => {
+    expect(config({ inputs: 'all' })).toMatchObject({ inputsOutDir: '', inputsPackage: '', warnings: [] });
+    expect(config({ inputs: 'all', inputsOutDir: 'inputs' })).toMatchObject({ inputsOutDir: 'inputs', inputsPackage: 'inputs', warnings: [] });
+    expect(config({ inputs: 'all', inputsOutDir: './query/inputs/' })).toMatchObject({ inputsOutDir: 'query/inputs', inputsPackage: 'inputs' });
+    expect(config({ inputs: 'all', inputsOutDir: 'query\\inputs' }).inputsOutDir).toBe('query/inputs');
+    expect(config({ inputs: 'all', inputsOutDir: 'a/../inputs' }).inputsOutDir).toBe('inputs');
+  });
+
+  it('refuses an inputsOutDir that is absolute, leaves the output directory or is the output directory', () => {
+    for (const inputsOutDir of ['/tmp/inputs', 'C:\\inputs']) {
+      expect(() => config({ inputs: 'all', inputsOutDir })).toThrow(/inputsOutDir must be relative to output/);
+    }
+    for (const inputsOutDir of ['..', '../inputs', 'inputs/../../other']) {
+      expect(() => config({ inputs: 'all', inputsOutDir })).toThrow(/inputsOutDir must stay inside output/);
+    }
+    for (const inputsOutDir of ['', '.', './', 'inputs/..']) {
+      expect(() => config({ inputs: 'all', inputsOutDir })).toThrow(/inputsOutDir must name a directory below output/);
+    }
+    expect(() => config({ inputs: 'all', inputsOutDir: ['a', 'b'] })).toThrow(/inputsOutDir must be a single string/);
+  });
+
+  it('names the inputs package after its directory unless inputsPackage says otherwise', () => {
+    expect(config({ inputs: 'all', inputsOutDir: 'query/inputs', inputsPackage: 'query' }).inputsPackage).toBe('query');
+    expect(() => config({ inputs: 'all', inputsOutDir: 'query-inputs' })).toThrow(/"query-inputs" is not a valid Go package name; set inputsPackage/);
+    expect(config({ inputs: 'all', inputsOutDir: 'query-inputs', inputsPackage: 'query' }).inputsPackage).toBe('query');
+    expect(() => config({ inputs: 'all', inputsOutDir: 'inputs', inputsPackage: 'my-inputs' })).toThrow(/"my-inputs" is not a valid Go package name/);
+  });
+
+  it('warns, without failing, about input options that have no effect', () => {
+    expect(config({ inputsOutDir: 'inputs' }).warnings).toEqual(['inputsOutDir is set but inputs is empty, so no inputs are written']);
+    expect(config({ inputs: 'all', inputsPackage: 'query' }).warnings).toEqual(['inputsPackage has no effect without inputsOutDir']);
   });
 
   it('needs a module path to generate go.mod', () => {

@@ -10,11 +10,11 @@ import (
 
 // User represents the users table.
 type User struct {
-	ID        uuid.UUID `json:"id,omitempty" db:"id"` // primary key
+	ID        uuid.UUID `json:"id" db:"id"` // primary key
 	Email     string    `json:"email" db:"email"`
 	Name      *string   `json:"name,omitempty" db:"name"`
-	Role      Role      `json:"role,omitempty" db:"role"`
-	CreatedAt time.Time `json:"createdAt,omitempty" db:"created_at"`
+	Role      Role      `json:"role" db:"role"`
+	CreatedAt time.Time `json:"createdAt" db:"created_at"`
 
 	// Relations (not persisted, populate manually)
 	Orders []Order `json:"orders,omitempty" db:"-"`

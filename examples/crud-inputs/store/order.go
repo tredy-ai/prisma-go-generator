@@ -10,12 +10,12 @@ import (
 
 // Order represents the orders table.
 type Order struct {
-	ID         int         `json:"id,omitempty" db:"id"` // primary key
+	ID         int         `json:"id" db:"id"` // primary key
 	UserID     uuid.UUID   `json:"userId" db:"user_id"`
-	Status     OrderStatus `json:"status,omitempty" db:"status"`
+	Status     OrderStatus `json:"status" db:"status"`
 	TotalCents int         `json:"totalCents" db:"total_cents"`
 	Note       *string     `json:"note,omitempty" db:"note"`
-	PlacedAt   time.Time   `json:"placedAt,omitempty" db:"placed_at"`
+	PlacedAt   time.Time   `json:"placedAt" db:"placed_at"`
 
 	// Relations (not persisted, populate manually)
 	User *User `json:"user,omitempty" db:"-"`

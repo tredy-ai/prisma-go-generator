@@ -16,25 +16,25 @@ import (
 // - emails are unique
 // - deleting an account deletes its profile
 type UserAccounts struct {
-	ID uuid.UUID `json:"id,omitempty" db:"id" yaml:"id,omitempty"` // primary key
+	ID uuid.UUID `json:"id" db:"id" yaml:"id"` // primary key
 	// Login email.
 	// Lower-cased before it is stored.
 	Email       string                   `json:"email" db:"email" yaml:"email"`
 	DisplayName sql.Null[string]         `json:"display_name,omitempty" db:"display_name" yaml:"displayName,omitempty"`
-	Role        Role                     `json:"role,omitempty" db:"role" yaml:"role,omitempty"`
+	Role        Role                     `json:"role" db:"role" yaml:"role"`
 	Status      sql.Null[FDLStatus]      `json:"status,omitempty" db:"status" yaml:"status,omitempty"`
 	Roles       []Role                   `json:"roles" db:"roles" yaml:"roles"`
 	Tags        []string                 `json:"tags" db:"tags" yaml:"tags"`
-	LoginCount  int                      `json:"login_count,omitempty" db:"login_count" yaml:"loginCount,omitempty"`
+	LoginCount  int                      `json:"login_count" db:"login_count" yaml:"loginCount"`
 	Rating      sql.Null[float32]        `json:"rating,omitempty" db:"rating" yaml:"rating,omitempty"`
-	Balance     decimal.Decimal          `json:"balance,omitempty" db:"balance" yaml:"balance,omitempty"`
+	Balance     decimal.Decimal          `json:"balance" db:"balance" yaml:"balance"`
 	Quota       sql.Null[int64]          `json:"quota,omitempty" db:"quota" yaml:"quota,omitempty"`
 	Avatar      sql.Null[[]byte]         `json:"avatar,omitempty" db:"avatar" yaml:"avatar,omitempty"`
-	Settings    map[string]any           `json:"settings,omitempty" db:"settings" yaml:"settings,omitempty"`
+	Settings    map[string]any           `json:"settings" db:"settings" yaml:"settings"`
 	Metadata    sql.Null[map[string]any] `json:"metadata,omitempty" db:"metadata" yaml:"metadata,omitempty"`
 	LastIP      sql.Null[string]         `json:"last_ip,omitempty" db:"last_ip" yaml:"lastIp,omitempty"`
 	BornOn      sql.Null[time.Time]      `json:"born_on,omitempty" db:"bornOn" yaml:"bornOn,omitempty"`
-	CreatedAt   time.Time                `json:"created_at,omitempty" db:"created_at" yaml:"createdAt,omitempty"`
+	CreatedAt   time.Time                `json:"created_at" db:"created_at" yaml:"createdAt"`
 	UpdatedAt   time.Time                `json:"updated_at" db:"updated_at" yaml:"updatedAt"`
 	ManagerID   sql.Null[uuid.UUID]      `json:"manager_id,omitempty" db:"manager_id" yaml:"managerId,omitempty"`
 
@@ -51,7 +51,7 @@ func (UserAccounts) TableName() string { return "accounts" }
 
 // Profile represents the Profile table.
 type Profile struct {
-	ID     int              `json:"id,omitempty" db:"id" yaml:"id,omitempty"` // primary key
+	ID     int              `json:"id" db:"id" yaml:"id"` // primary key
 	Bio    sql.Null[string] `json:"bio,omitempty" db:"bio" yaml:"bio,omitempty"`
 	UserID uuid.UUID        `json:"user_id" db:"user_id" yaml:"userId"`
 

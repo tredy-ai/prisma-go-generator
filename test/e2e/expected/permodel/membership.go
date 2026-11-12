@@ -13,7 +13,7 @@ import (
 type Membership struct {
 	UserId   string    `json:"userId" db:"user_id"`
 	TeamName string    `json:"teamName" db:"team_name"`
-	JoinedAt time.Time `json:"joinedAt,omitempty" db:"joinedAt"`
+	JoinedAt time.Time `json:"joinedAt" db:"joinedAt"`
 }
 
 // Inputs

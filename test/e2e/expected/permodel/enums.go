@@ -7,15 +7,15 @@ package permodel
 type Role uint8
 
 const (
-	RoleAdmin Role = iota
-	RoleSuperUser
-	RoleMemberOnly
+	RoleAdmin      Role = iota + 1 // ADMIN
+	RoleSuperUser                  // super
+	RoleMemberOnly                 // member_only
 )
 
 //go:generate stringer -type=FDLStatus
 type FDLStatus uint8
 
 const (
-	FDLStatusFdlStatusDraft FDLStatus = iota
-	FDLStatusFdlStatusApproved
+	FDLStatusFdlStatusDraft    FDLStatus = iota + 1 // FDL_STATUS_DRAFT
+	FDLStatusFdlStatusApproved                      // FDL_STATUS_APPROVED
 )

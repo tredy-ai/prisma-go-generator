@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { basename, extname, join } from 'node:path';
+import { basename, dirname, extname, join, posix, relative, sep } from 'node:path';
 import type { GeneratorOptions } from '@prisma/generator-helper';
 import { parseConfig, type Config } from './config.js';
 import { HEADER, fileFor, generateFiles } from './layout.js';
@@ -74,6 +74,29 @@ function writeGoMod(cfg: Config): void {
   writeFileSync(path, `module ${cfg.goModule}\n\ngo ${version}\n`);
 }
 
+/**
+ * The Go import path of the output directory, which the inputs need once they are a package of
+ * their own. A go.mod already in the directory decides; failing that the one generateGoMod is
+ * about to write there, then the nearest go.mod above, then goModule taken at its word.
+ */
+export function modelsImportPath(cfg: Pick<Config, 'dir' | 'generateGoMod' | 'goModule'>): string {
+  if (cfg.generateGoMod && !existsSync(join(cfg.dir, 'go.mod'))) return cfg.goModule;
+  for (let dir = cfg.dir; ; dir = dirname(dir)) {
+    const goMod = join(dir, 'go.mod');
+    if (existsSync(goMod)) {
+      const module = /^module\s+"?([^\s"]+)"?/m.exec(readFileSync(goMod, 'utf8'))?.[1];
+      if (!module) throw fail(`${goMod} has no module line, so inputsOutDir cannot work out an import path for the models package`);
+      return [module, ...relative(dir, cfg.dir).split(sep).filter(Boolean)].join('/');
+    }
+    if (dirname(dir) === dir) break;
+  }
+  if (cfg.goModule !== '') return cfg.goModule;
+  throw fail(
+    `inputsOutDir needs the import path of the models package, and there is no go.mod in ${cfg.dir} or above it. ` +
+      'Run `go mod init` there, or set goModule = "<import path of the output directory>".',
+  );
+}
+
 const enumerOutput = (goName: string): string => `${goName.toLowerCase()}_enumer.go`;
 
 function runEnumer(cfg: Config, enums: [goName: string, file: string][]): void {
@@ -103,23 +126,35 @@ function runEnumer(cfg: Config, enums: [goName: string, file: string][]): void {
 
 export function generate(options: GeneratorOptions): void {
   const cfg = parseConfig(options.generator);
+  cfg.warnings.forEach(warn);
   const { datamodel } = options.dmmf;
   const sources = cfg.layout === 'perFile' ? declarationFiles(options.schemaPath) : new Map<string, string>();
-  const files = generateFiles(datamodel, cfg, sources);
+  const split = cfg.inputsOutDir !== '' && cfg.inputs.length > 0;
+  const files = generateFiles(datamodel, cfg, sources, split ? modelsImportPath(cfg) : '');
 
+  // A file is named by its path below the output directory: the inputs' own directory, if any, is the only one below it.
+  const written = new Map<string, Set<string>>([[cfg.dir, new Set()]]);
   mkdirSync(cfg.dir, { recursive: true });
   for (const [name, source] of files) {
+    const dir = name.includes('/') ? join(cfg.dir, posix.dirname(name)) : cfg.dir;
+    mkdirSync(dir, { recursive: true });
     writeFileSync(join(cfg.dir, name), cfg.gofmt ? gofmt(source, name) : source);
+    written.set(dir, (written.get(dir) ?? new Set()).add(posix.basename(name)));
   }
 
   const enums = datamodel.enums.map((e): [string, string] => [toPascalCase(e.name, cfg.initialisms), fileFor('enum', e.name, cfg, sources)]);
-  prune(cfg.dir, new Set(files.keys()), cfg.enumer ? new Set(enums.map(([goName]) => enumerOutput(goName))) : null);
+  prune(cfg.dir, written.get(cfg.dir) ?? new Set(), cfg.enumer ? new Set(enums.map(([goName]) => enumerOutput(goName))) : null);
+  // The inputs' directory is pruned even when nothing was written to it, so turning inputs off cleans it up.
+  const inputsDir = cfg.inputsOutDir === '' ? '' : join(cfg.dir, cfg.inputsOutDir);
+  if (inputsDir !== '' && existsSync(inputsDir)) prune(inputsDir, written.get(inputsDir) ?? new Set(), null);
 
   if (cfg.generateGoMod) writeGoMod(cfg);
   if (cfg.enumer) runEnumer(cfg, enums);
   if (cfg.runGoGenerate) {
-    const result = spawnSync('go', ['generate', '.'], { cwd: cfg.dir, encoding: 'utf8' });
-    if (result.error) throw fail(`runGoGenerate could not run go (${result.error.message})`);
-    if (result.status !== 0) throw fail(`go generate failed:\n${result.stderr}${result.stdout}`);
+    for (const dir of written.keys()) {
+      const result = spawnSync('go', ['generate', '.'], { cwd: dir, encoding: 'utf8' });
+      if (result.error) throw fail(`runGoGenerate could not run go (${result.error.message})`);
+      if (result.status !== 0) throw fail(`go generate failed:\n${result.stderr}${result.stdout}`);
+    }
   }
 }

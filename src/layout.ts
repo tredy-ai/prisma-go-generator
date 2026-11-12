@@ -60,51 +60,74 @@ function assemble(pkg: string, parts: FileParts): string {
 }
 
 function checkTypeNames(datamodel: DMMF.Datamodel, cfg: Config): void {
-  const taken = new Map<string, string>();
-  const claim = (goName: string, owner: string): void => {
+  const claim = (taken: Map<string, string>, goName: string, owner: string): void => {
     const other = taken.get(goName);
     if (other !== undefined) throw new Error(`prisma-go-generator: ${other} and ${owner} both become the Go type ${goName}`);
     taken.set(goName, owner);
   };
-  for (const e of datamodel.enums) claim(toPascalCase(e.name, cfg.initialisms), `enum ${e.name}`);
-  for (const m of datamodel.models) claim(toPascalCase(m.name, cfg.initialisms), `model ${m.name}`);
+  const models = new Map<string, string>();
+  for (const e of datamodel.enums) claim(models, toPascalCase(e.name, cfg.initialisms), `enum ${e.name}`);
+  for (const m of datamodel.models) claim(models, toPascalCase(m.name, cfg.initialisms), `model ${m.name}`);
   if (cfg.inputs.length === 0) return;
-  for (const name of sharedInputNames(cfg)) claim(name, 'the shared input types');
+  // A package of their own gives the inputs their own names: a model may then be called Filter.
+  const inputs = cfg.inputsOutDir === '' ? models : new Map<string, string>();
+  for (const name of sharedInputNames(cfg)) claim(inputs, name, 'the shared input types');
   for (const m of datamodel.models) {
-    for (const name of modelInputNames(m, cfg)) claim(name, `the inputs of model ${m.name}`);
+    for (const name of modelInputNames(m, cfg)) claim(inputs, name, `the inputs of model ${m.name}`);
   }
 }
 
-/** Renders the whole datamodel: Go file name -> unformatted Go source. */
-export function generateFiles(datamodel: DMMF.Datamodel, cfg: Config, sources: ReadonlyMap<string, string> = new Map()): Map<string, string> {
+/**
+ * Renders the whole datamodel: Go file path below the output directory -> unformatted Go source.
+ * With `inputsOutDir` the inputs go to `<inputsOutDir>/<file>`, laid out like the models, and
+ * `modelsImport` has to be the import path of the models package they refer to.
+ */
+export function generateFiles(
+  datamodel: DMMF.Datamodel,
+  cfg: Config,
+  sources: ReadonlyMap<string, string> = new Map(),
+  modelsImport = '',
+): Map<string, string> {
   checkTypeNames(datamodel, cfg);
 
-  const files = new Map<string, FileParts>();
-  const file = (name: string): FileParts => {
+  const partsIn = (files: Map<string, FileParts>, name: string): FileParts => {
     let parts = files.get(name);
     if (!parts) files.set(name, (parts = { imports: new Set(), enums: [], models: [], inputs: [] }));
     return parts;
   };
+  const files = new Map<string, FileParts>();
+  const file = (name: string): FileParts => partsIn(files, name);
   if (cfg.layout === 'single') file(cfg.fileName);
 
   for (const e of datamodel.enums) file(fileFor('enum', e.name, cfg, sources)).enums.push(renderEnum(e, cfg));
 
   const withInputs = cfg.inputs.length > 0 && datamodel.models.length > 0;
-  if (withInputs) file(cfg.layout === 'single' ? cfg.fileName : 'inputs.go').inputs.push(...sharedInputs(cfg));
+  const split = withInputs && cfg.inputsOutDir !== '';
+  if (split && modelsImport === '') throw new Error('prisma-go-generator: inputsOutDir needs the import path of the models package');
+  // In their own directory the inputs are only ever written to files that have something in them.
+  const inputFiles = split ? new Map<string, FileParts>() : files;
+  const shared = withInputs ? sharedInputs(cfg) : [];
+  if (withInputs && (!split || shared.length > 0)) partsIn(inputFiles, cfg.layout === 'single' ? cfg.fileName : 'inputs.go').inputs.push(...shared);
 
   for (const m of datamodel.models) {
-    const parts = file(fileFor('model', m.name, cfg, sources));
+    const name = fileFor('model', m.name, cfg, sources);
+    const parts = file(name);
     const model = renderModel(m, cfg);
     parts.models.push(model.code);
     model.imports.forEach((path) => parts.imports.add(path));
     if (!withInputs) continue;
-    for (const input of modelInputs(m, cfg)) {
-      parts.inputs.push(input.code);
-      input.imports.forEach((path) => parts.imports.add(path));
+    const inputs = modelInputs(m, cfg, split ? { name: cfg.package, importPath: modelsImport } : undefined);
+    if (inputs.length === 0) continue;
+    const target = split ? partsIn(inputFiles, name) : parts;
+    for (const input of inputs) {
+      target.inputs.push(input.code);
+      input.imports.forEach((path) => target.imports.add(path));
     }
   }
 
-  return new Map([...files].map(([name, parts]) => [name, assemble(cfg.package, parts)]));
+  const out = new Map([...files].map(([name, parts]) => [name, assemble(cfg.package, parts)]));
+  if (split) for (const [name, parts] of inputFiles) out.set(`${cfg.inputsOutDir}/${name}`, assemble(cfg.inputsPackage, parts));
+  return out;
 }
 
 /** The single-file layout's one file. */

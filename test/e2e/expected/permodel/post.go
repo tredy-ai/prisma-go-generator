@@ -7,11 +7,11 @@ package permodel
 // Index: author_slug (authorId, slug)
 // Index: unique (authorId, slug)
 type Post struct {
-	Id        int64  `json:"id,omitempty" db:"id"` // primary key
+	Id        int64  `json:"id" db:"id"` // primary key
 	Slug      string `json:"slug" db:"slug"`
 	Title     string `json:"title" db:"title"`
-	Views     int32  `json:"views,omitempty" db:"views"`
-	Published bool   `json:"published,omitempty" db:"published"`
+	Views     int32  `json:"views" db:"views"`
+	Published bool   `json:"published" db:"published"`
 	AuthorId  string `json:"authorId" db:"author_id"`
 }
 

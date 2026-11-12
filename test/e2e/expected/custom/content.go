@@ -12,11 +12,11 @@ import (
 // Index: author_slug (authorId, slug)
 // Index: unique (authorId, slug)
 type Post struct {
-	ID        int64     `json:"id,omitempty" db:"id" yaml:"id,omitempty"` // primary key
+	ID        int64     `json:"id" db:"id" yaml:"id"` // primary key
 	Slug      string    `json:"slug" db:"slug" yaml:"slug"`
 	Title     string    `json:"title" db:"title" yaml:"title"`
-	Views     int16     `json:"views,omitempty" db:"views" yaml:"views,omitempty"`
-	Published bool      `json:"published,omitempty" db:"published" yaml:"published,omitempty"`
+	Views     int16     `json:"views" db:"views" yaml:"views"`
+	Published bool      `json:"published" db:"published" yaml:"published"`
 	AuthorID  uuid.UUID `json:"author_id" db:"author_id" yaml:"authorId"`
 
 	// Relations (not persisted, populate manually)
@@ -29,7 +29,7 @@ func (Post) TableName() string { return "Post" }
 
 // Tag represents the Tag table.
 type Tag struct {
-	ID   int    `json:"id,omitempty" db:"id" yaml:"id,omitempty"` // primary key
+	ID   int    `json:"id" db:"id" yaml:"id"` // primary key
 	Name string `json:"name" db:"name" yaml:"name"`
 
 	// Relations (not persisted, populate manually)
@@ -45,7 +45,7 @@ func (Tag) TableName() string { return "Tag" }
 type Membership struct {
 	UserID   uuid.UUID `json:"user_id" db:"user_id" yaml:"userId"`
 	TeamName string    `json:"team_name" db:"team_name" yaml:"teamName"`
-	JoinedAt time.Time `json:"joined_at,omitempty" db:"joinedAt" yaml:"joinedAt,omitempty"`
+	JoinedAt time.Time `json:"joined_at" db:"joinedAt" yaml:"joinedAt"`
 
 	// Relations (not persisted, populate manually)
 	User *UserAccounts `json:"user,omitempty" db:"-" yaml:"user,omitempty"`
