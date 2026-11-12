@@ -94,7 +94,7 @@ jobs:
             # Published but never tagged, and main has moved on: tagging this commit would be wrong.
             published=$(jq -r '.gitHead // ""' "$RUNNER_TEMP/published.json")
             if [ -n "$published" ] && [ "$published" != "$GITHUB_SHA" ]; then
-              echo "::error::$VERSION is on npm, built from $published, but has no tag. Create the tag v$VERSION on that commit, then re-run."
+              echo "::error::$VERSION is on npm, built from $published, but has no tag. Create the tag v$VERSION on that commit, then re-run all jobs so the version is worked out again."
               exit 1
             fi
             echo "$VERSION is already on npm"
