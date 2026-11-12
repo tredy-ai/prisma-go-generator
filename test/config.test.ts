@@ -124,6 +124,39 @@ describe('parseConfig', () => {
     expect(() => config({ inputs: ['upsert'] })).toThrow(/upsert/);
   });
 
+  it('keeps the inputs with the models unless inputsOutDir names a directory below the output', () => {
+    expect(config({ inputs: 'all' })).toMatchObject({ inputsOutDir: '', inputsPackage: '', warnings: [] });
+    expect(config({ inputs: 'all', inputsOutDir: 'inputs' })).toMatchObject({ inputsOutDir: 'inputs', inputsPackage: 'inputs', warnings: [] });
+    expect(config({ inputs: 'all', inputsOutDir: './query/inputs/' })).toMatchObject({ inputsOutDir: 'query/inputs', inputsPackage: 'inputs' });
+    expect(config({ inputs: 'all', inputsOutDir: 'query\\inputs' }).inputsOutDir).toBe('query/inputs');
+    expect(config({ inputs: 'all', inputsOutDir: 'a/../inputs' }).inputsOutDir).toBe('inputs');
+  });
+
+  it('refuses an inputsOutDir that is absolute, leaves the output directory or is the output directory', () => {
+    for (const inputsOutDir of ['/tmp/inputs', 'C:\\inputs']) {
+      expect(() => config({ inputs: 'all', inputsOutDir })).toThrow(/inputsOutDir must be relative to output/);
+    }
+    for (const inputsOutDir of ['..', '../inputs', 'inputs/../../other']) {
+      expect(() => config({ inputs: 'all', inputsOutDir })).toThrow(/inputsOutDir must stay inside output/);
+    }
+    for (const inputsOutDir of ['', '.', './', 'inputs/..']) {
+      expect(() => config({ inputs: 'all', inputsOutDir })).toThrow(/inputsOutDir must name a directory below output/);
+    }
+    expect(() => config({ inputs: 'all', inputsOutDir: ['a', 'b'] })).toThrow(/inputsOutDir must be a single string/);
+  });
+
+  it('names the inputs package after its directory unless inputsPackage says otherwise', () => {
+    expect(config({ inputs: 'all', inputsOutDir: 'query/inputs', inputsPackage: 'query' }).inputsPackage).toBe('query');
+    expect(() => config({ inputs: 'all', inputsOutDir: 'query-inputs' })).toThrow(/"query-inputs" is not a valid Go package name; set inputsPackage/);
+    expect(config({ inputs: 'all', inputsOutDir: 'query-inputs', inputsPackage: 'query' }).inputsPackage).toBe('query');
+    expect(() => config({ inputs: 'all', inputsOutDir: 'inputs', inputsPackage: 'my-inputs' })).toThrow(/"my-inputs" is not a valid Go package name/);
+  });
+
+  it('warns, without failing, about input options that have no effect', () => {
+    expect(config({ inputsOutDir: 'inputs' }).warnings).toEqual(['inputsOutDir is set but inputs is empty, so no inputs are written']);
+    expect(config({ inputs: 'all', inputsPackage: 'query' }).warnings).toEqual(['inputsPackage has no effect without inputsOutDir']);
+  });
+
   it('needs a module path to generate go.mod', () => {
     expect(() => config({ generateGoMod: 'true' })).toThrow(/goModule/);
     expect(config({ generateGoMod: 'true', goModule: 'example.com/m', goVersion: '1.24' })).toMatchObject({

@@ -164,14 +164,28 @@ export function sharedInputNames(cfg: Config): string[] {
   return selected(cfg).flatMap((family) => (SHARED[family] ?? []).map(([name]) => name));
 }
 
-/** The input types of one model, for the families the config asks for. */
-export function modelInputs(m: DMMF.Model, cfg: Config): Decl[] {
+/** The models package as the inputs see it once they are a package of their own. */
+export interface ModelsPackage {
+  name: string;
+  importPath: string;
+}
+
+/**
+ * The input types of one model, for the families the config asks for. `models` is set when the
+ * inputs are not in the models package: types declared there are then written `<name>.<Type>`.
+ */
+export function modelInputs(m: DMMF.Model, cfg: Config, models?: ModelsPackage): Decl[] {
   const model = toPascalCase(m.name, cfg.initialisms);
   const imports: string[] = [];
   const goName = (field: DMMF.Field): string => toPascalCase(field.name, cfg.initialisms);
   const goType = (field: DMMF.Field): string => {
     const type = baseType(field, cfg);
     imports.push(...type.imports);
+    // An enum is the one column type the models package declares; relation fields name input types.
+    if (models && field.kind === 'enum') {
+      imports.push(models.importPath);
+      return `${models.name}.${type.expr}`;
+    }
     return type.expr;
   };
   const columns = m.fields.filter((field) => field.kind !== 'object');

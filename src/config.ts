@@ -1,4 +1,4 @@
-import { basename } from 'node:path';
+import { basename, isAbsolute, posix, win32 } from 'node:path';
 
 export const NAMINGS = ['field', 'column', 'snake', 'camel', 'pascal'] as const;
 export type Naming = (typeof NAMINGS)[number];
@@ -45,10 +45,19 @@ export interface Config {
   tableNameMethod: boolean;
   gofmt: boolean;
   inputs: InputFamily[];
+  /**
+   * Directory below `dir`, with `/` separators, that the query inputs are written to as a package
+   * of their own. Empty keeps them in the models package.
+   */
+  inputsOutDir: string;
+  /** Go package name of `inputsOutDir`. */
+  inputsPackage: string;
   generateGoMod: boolean;
   goModule: string;
   /** Empty means "ask the installed Go toolchain". */
   goVersion: string;
+  /** Things the user should hear about that do not stop the run. */
+  warnings: string[];
 }
 
 /** The parts of Prisma's GeneratorConfig this generator reads. */
@@ -82,6 +91,8 @@ const OPTIONS = [
   'tableNameMethod',
   'gofmt',
   'inputs',
+  'inputsOutDir',
+  'inputsPackage',
   'generateGoMod',
   'goModule',
   'goVersion',
@@ -172,6 +183,27 @@ export function parseConfig(generator: GeneratorBlock): Config {
     }
   }
 
+  const warnings: string[] = [];
+  let inputsOutDir = '';
+  if (raw.inputsOutDir !== undefined) {
+    const value = str('inputsOutDir', '');
+    if (isAbsolute(value) || win32.isAbsolute(value)) throw fail(`inputsOutDir must be relative to output, got "${value}"`);
+    inputsOutDir = posix.normalize(value.replaceAll('\\', '/')).replace(/\/+$/, '');
+    if (inputsOutDir === '..' || inputsOutDir.startsWith('../')) throw fail(`inputsOutDir must stay inside output, got "${value}"`);
+    if (inputsOutDir === '.') {
+      throw fail(`inputsOutDir must name a directory below output, got "${value}"; leave it out to keep the inputs with the models`);
+    }
+  }
+  const inputsPackage = str('inputsPackage', inputsOutDir === '' ? '' : posix.basename(inputsOutDir));
+  if (inputsOutDir === '') {
+    if (raw.inputsPackage !== undefined) warnings.push('inputsPackage has no effect without inputsOutDir');
+  } else {
+    if (!IDENT.test(inputsPackage)) {
+      throw fail(`"${inputsPackage}" is not a valid Go package name; set inputsPackage = "..." in the generator block`);
+    }
+    if (inputs.length === 0) warnings.push('inputsOutDir is set but inputs is empty, so no inputs are written');
+  }
+
   const generateGoMod = bool('generateGoMod', false);
   const goModule = str('goModule', '');
   if (generateGoMod && goModule === '') throw fail('generateGoMod = "true" needs goModule = "<module path>"');
@@ -196,8 +228,11 @@ export function parseConfig(generator: GeneratorBlock): Config {
     tableNameMethod: bool('tableNameMethod', false),
     gofmt: bool('gofmt', true),
     inputs: inputs as InputFamily[],
+    inputsOutDir,
+    inputsPackage,
     generateGoMod,
     goModule,
     goVersion: str('goVersion', ''),
+    warnings,
   };
 }

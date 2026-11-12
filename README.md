@@ -74,6 +74,8 @@ Every option is a string, or a list of strings, in the generator block. `output`
 | `relations` | `"true"` | Include relation fields in model structs and inputs. |
 | `tableNameMethod` | `"false"` | Add `func (User) TableName() string` to every model. |
 | `inputs` | `[]` | Query input families to generate. See [Query inputs](#query-inputs). |
+| `inputsOutDir` | | Directory below `output` to write the query inputs to, as a Go package of their own. See [Inputs in their own package](#inputs-in-their-own-package). |
+| `inputsPackage` | name of the `inputsOutDir` directory | Go package name of the inputs' directory. |
 | `gofmt` | `"true"` | Format the output with `gofmt`. |
 | `generateGoMod` | `"false"` | Write a `go.mod` into the output directory if there is none. |
 | `goModule` | | Module path for the generated `go.mod`. Required with `generateGoMod`. |
@@ -235,6 +237,40 @@ The filters are generic over the column's Go type, so they follow your `types` o
 - Order-by inputs cover columns and to-one relations, not counts of to-many relations.
 - A nil slice and an empty slice both drop out of the JSON, so `in: []` cannot be expressed.
 
+### Inputs in their own package
+
+The inputs are written next to the models, in the same package, unless `inputsOutDir` names a directory for them. It is relative to `output` and has to stay inside it:
+
+```prisma
+generator go {
+  provider     = "prisma-go-generator"
+  output       = "../store"
+  inputs       = "all"
+  inputsOutDir = "inputs" // ../store/inputs, package inputs
+}
+```
+
+The package is named after the directory; `inputsPackage` gives it another name. The [layout](#layouts) applies to both directories:
+
+| Layout | Models directory | Inputs directory |
+|---|---|---|
+| `emitSingle` | `models.go` with enums and models | `models.go` with every input |
+| `emitPerFile` | `users.go` with the enums and models of `users.prisma` | `users.go` with the inputs of those models, `inputs.go` for the shared input types |
+| `emitPerModel` | `user.go` per model, `enums.go` | `user.go` with that model's inputs, `inputs.go` for the shared input types |
+
+A file that would hold nothing is not written.
+
+Enums stay in the models package, so the inputs import it and write `store.Role`. The models never import the inputs. The generator works out the import path of the models package from the first of these it finds:
+
+1. a `go.mod` in the output directory,
+2. `goModule`, when `generateGoMod` is about to write that `go.mod`,
+3. the nearest `go.mod` above the output directory, plus the path from there down to it,
+4. `goModule`.
+
+With none of them it stops and says so. It only looks when there are inputs to write: `inputsOutDir` with `inputs` left empty writes nothing and prints a warning, as does `inputsPackage` without `inputsOutDir`.
+
+The inputs' directory is cleaned up like the models directory, as described under [Layouts](#layouts). If you delete the generated files yourself before generating, delete those in the inputs' directory as well.
+
 ## Layouts
 
 | Layout | Files |
@@ -244,6 +280,8 @@ The filters are generic over the column's Go type, so they follow your `types` o
 | `emitPerModel` | `user.go` per model with its struct and inputs, `enums.go`, and `inputs.go` for the shared input types. |
 
 On each run the generator deletes the Go files it wrote earlier and no longer writes, such as the file of a model you removed. It recognises its own files by their first line and leaves every other file alone. With `enumer` on, it also deletes enumer output for enums that no longer exist.
+
+With `inputsOutDir` the models and the inputs are laid out separately, each in its own directory: see [Inputs in their own package](#inputs-in-their-own-package).
 
 A file name that the go tool would read as a build constraint gets `_gen` appended: a model called `UserWindows` is written to `user_windows_gen.go`.
 
@@ -302,7 +340,7 @@ The tests are in three layers:
 | Layer | Where | What it checks |
 |---|---|---|
 | Unit | `test/*.test.ts` | Naming, type mapping, option parsing, rendering and layouts, against small hand-built schemas. The prisma2go test cases are carried over. |
-| End to end | `test/e2e.test.ts` | Runs the Prisma CLI over `test/e2e/schema` with four generator blocks and compares each file with `test/e2e/expected`. `task test:update` rewrites the expected files. |
+| End to end | `test/e2e.test.ts` | Runs the Prisma CLI over `test/e2e/schema` with seven generator blocks and compares each file with `test/e2e/expected`. `task test:update` rewrites the expected files. |
 | Go | `task test:go`, `task examples` | Builds and vets the generated code, and runs the examples' tests. |
 
 ## Releasing

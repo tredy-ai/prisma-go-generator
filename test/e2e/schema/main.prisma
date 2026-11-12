@@ -1,4 +1,4 @@
-// End-to-end fixture: every mapping the generator knows, run through three configurations.
+// End-to-end fixture: every mapping the generator knows, run through several configurations.
 // `task test` runs the real `prisma generate` over this directory and compares the result with
 // test/e2e/expected.
 
@@ -61,5 +61,46 @@ generator poststeps {
   runGoGenerate = "true"
   generateGoMod = "true"
   goModule      = "example.com/e2e/poststeps"
+  goVersion     = "1.27"
+}
+
+// Inputs in a package of their own, one file in each directory. The models package is not named
+// after its directory, as in `output = "../gomodels"` with `package = "prisma"`.
+generator splitsingle {
+  provider      = "node ./bin/prisma-go-generator.js"
+  output        = "../out/splitsingle"
+  package       = "store"
+  inputs        = "all"
+  inputsOutDir  = "inputs"
+  enumer        = "false"
+  generateGoMod = "true"
+  goModule      = "example.com/e2e/splitsingle"
+  goVersion     = "1.27"
+}
+
+// The same per .prisma file, in a nested directory with a package name of its own. There is no
+// go.mod in the output directory: the import path comes from the one above it, which the test writes.
+generator splitperfile {
+  provider      = "node ./bin/prisma-go-generator.js"
+  output        = "../out/splitperfile/db"
+  emitPerFile   = "true"
+  inputs        = ["where", "update"]
+  inputsOutDir  = "query/inputs"
+  inputsPackage = "query"
+  enumType      = "string"
+  types         = ["db.Uuid=uuid.UUID"]
+  runGoGenerate = "true" // has to cope with both directories, though neither has a directive
+}
+
+// The same per model. These families have no shared types, so there is no inputs.go.
+generator splitpermodel {
+  provider      = "node ./bin/prisma-go-generator.js"
+  output        = "../out/splitpermodel"
+  emitPerModel  = "true"
+  inputs        = ["whereUnique", "create", "include"]
+  inputsOutDir  = "inputs"
+  enumer        = "false"
+  generateGoMod = "true"
+  goModule      = "example.com/e2e/splitpermodel"
   goVersion     = "1.27"
 }
