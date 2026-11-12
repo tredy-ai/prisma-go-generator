@@ -5,7 +5,7 @@ package permodel
 
 // Tag represents the Tag table.
 type Tag struct {
-	Id   int32  `json:"id,omitempty" db:"id"` // primary key
+	Id   int32  `json:"id" db:"id"` // primary key
 	Name string `json:"name" db:"name"`
 }
 

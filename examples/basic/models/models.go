@@ -19,11 +19,11 @@ const (
 
 // User - A person who can sign in.
 type User struct {
-	Id        int32     `json:"id,omitempty" db:"id"` // primary key
+	Id        int32     `json:"id" db:"id"` // primary key
 	Email     string    `json:"email" db:"email"`
 	Name      *string   `json:"name,omitempty" db:"name"`
-	Role      Role      `json:"role,omitempty" db:"role"`
-	CreatedAt time.Time `json:"createdAt,omitempty" db:"created_at"`
+	Role      Role      `json:"role" db:"role"`
+	CreatedAt time.Time `json:"createdAt" db:"created_at"`
 
 	// Relations (not persisted, populate manually)
 	Posts []Post `json:"posts,omitempty" db:"-"`
@@ -31,7 +31,7 @@ type User struct {
 
 // Post represents the posts table.
 type Post struct {
-	Id       int32  `json:"id,omitempty" db:"id"` // primary key
+	Id       int32  `json:"id" db:"id"` // primary key
 	Title    string `json:"title" db:"title"`
 	AuthorId int32  `json:"authorId" db:"author_id"`
 

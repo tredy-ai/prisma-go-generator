@@ -48,7 +48,9 @@ function structTag(tag: StructTag, field: DMMF.Field, goName: string, cfg: Confi
     // A relation is not a column, and is only present once the caller has loaded it.
     return tag.naming === 'column' ? `${tag.key}:"-"` : `${tag.key}:"${tagName(tag, field, goName)},omitempty"`;
   }
-  const omit = cfg.omitempty.has(tag.key) && (!field.isRequired || field.hasDefaultValue);
+  // Only an optional column: a required one is a plain value, and omitempty would drop its zero
+  // value (false, 0, "", an enum's first constant) even though that is what the row holds.
+  const omit = cfg.omitempty.has(tag.key) && !field.isRequired;
   return `${tag.key}:"${tagName(tag, field, goName)}${omit ? ',omitempty' : ''}"`;
 }
 

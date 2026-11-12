@@ -14,11 +14,11 @@ generator go {
 ```go
 // User - A person who can sign in.
 type User struct {
-	Id        int32     `json:"id,omitempty" db:"id"` // primary key
+	Id        int32     `json:"id" db:"id"` // primary key
 	Email     string    `json:"email" db:"email"`
 	Name      *string   `json:"name,omitempty" db:"name"`
-	Role      Role      `json:"role,omitempty" db:"role"`
-	CreatedAt time.Time `json:"createdAt,omitempty" db:"created_at"`
+	Role      Role      `json:"role" db:"role"`
+	CreatedAt time.Time `json:"createdAt" db:"created_at"`
 
 	// Relations (not persisted, populate manually)
 	Posts []Post `json:"posts,omitempty" db:"-"`
@@ -62,7 +62,7 @@ Every option is a string, or a list of strings, in the generator block. `output`
 | `emitPerModel` | `"false"` | Write one Go file per model, holding the struct and its inputs. Enums go to `enums.go`. |
 | `fileName` | `models.go` | File name for the single layout. |
 | `structTags` | `["json", "db"]` | Struct tags to write, in order. See [Struct tags](#struct-tags). |
-| `omitempty` | `["json"]` | Tags that get `,omitempty` on optional and defaulted columns. |
+| `omitempty` | `["json"]` | Tags that get `,omitempty` on optional columns. |
 | `types` | `[]` | Go type overrides. See [Type mapping](#type-mapping). |
 | `optionalType` | `pointer` | How an optional column is typed: `*T`, or a generic wrapper such as `database/sql.Null`. |
 | `enumType` | `int` | Go type behind enums: any integer type (`int`, `uint8`, ...) or `string`. |
@@ -270,13 +270,13 @@ These are unchanged so that existing output does not move. Each can be worked ar
 
 - A `@@unique` group is listed twice in the comment above a model, once from each place Prisma reports it.
 - Enum constants are the enum name followed by the value in Pascal case, so `FDLStatus.FDL_STATUS_DRAFT` becomes `FDLStatusFdlStatusDraft`.
-- An integer enum's first value is zero, and `omitempty` drops a zero from JSON. A defaulted enum column holding its first value is therefore left out when marshalled. Use `enumStart = "1"`, `enumType = "string"` or `omitempty = []` if that matters to you.
 - Names are not rewritten to Go initialisms unless you list them: `userId` becomes `UserId`, or `UserID` with `initialisms = ["ID"]`.
 - The first line of the file is directly above the package clause, so Go reads it as the package comment.
 
 ### Differences from prisma2go
 
 - An integer enum constant ends in a line comment holding the value stored in the database. See [Enums](#enums).
+- `,omitempty` goes on optional columns only. prisma2go also put it on required columns that have a default, so a row holding `false`, `0`, `""` or an enum's first value lost that key when marshalled.
 - When the generated code does not parse, prisma2go wrote it unformatted and warned. This generator stops with gofmt's error instead.
 
 ## Examples

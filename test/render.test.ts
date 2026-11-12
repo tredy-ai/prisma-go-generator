@@ -27,10 +27,10 @@ describe('render: prisma2go parity', () => {
       'type Post struct',
       '// User represents the users table.',
       '// Index: User_email_key (email)',
-      'Id int32 `json:"id,omitempty" db:"id"` // primary key',
+      'Id int32 `json:"id" db:"id"` // primary key',
       'Email string `json:"email" db:"email"`',
       'Name *string `json:"name,omitempty" db:"name"`',
-      'CreatedAt time.Time `json:"createdAt,omitempty" db:"created_at"`',
+      'CreatedAt time.Time `json:"createdAt" db:"created_at"`',
       'AuthorId int32 `json:"authorId" db:"author_id"`',
       '// Relations (not persisted, populate manually)',
       'Posts []Post `json:"posts,omitempty" db:"-"`',
@@ -178,8 +178,28 @@ describe('render: options', () => {
 
   it('initialisms rename fields but not tags', () => {
     const out = render(fixture('basic'), config({ initialisms: ['ID'] }));
-    expect(out).toContain('ID int32 `json:"id,omitempty" db:"id"` // primary key');
+    expect(out).toContain('ID int32 `json:"id" db:"id"` // primary key');
     expect(out).toContain('AuthorID int32 `json:"authorId" db:"author_id"`');
+  });
+
+  it('omitempty goes on optional columns only, not on required ones that have a default', () => {
+    const out = render(
+      model('Account', [
+        field({ name: 'id', type: 'Int', isId: true, hasDefaultValue: true }),
+        field({ name: 'active', type: 'Boolean', hasDefaultValue: true }),
+        field({ name: 'plan', hasDefaultValue: true }),
+        field({ name: 'email' }),
+        field({ name: 'nickname', isRequired: false }),
+        field({ name: 'seats', type: 'Int', isRequired: false, hasDefaultValue: true }),
+      ]),
+      config(),
+    );
+    expect(out).toContain('Id int32 `json:"id" db:"id"` // primary key');
+    expect(out).toContain('Active bool `json:"active" db:"active"`');
+    expect(out).toContain('Plan string `json:"plan" db:"plan"`');
+    expect(out).toContain('Email string `json:"email" db:"email"`');
+    expect(out).toContain('Nickname *string `json:"nickname,omitempty" db:"nickname"`');
+    expect(out).toContain('Seats *int32 `json:"seats,omitempty" db:"seats"`');
   });
 
   it('omitempty = [] keeps omitempty only on relations', () => {
@@ -190,7 +210,8 @@ describe('render: options', () => {
 
   it('structTags supports extra tags and per-tag naming', () => {
     const out = render(fixture('basic'), config({ structTags: ['json:snake', 'db', 'yaml:camel', 'bson:column'], omitempty: ['json', 'yaml'] }));
-    expect(out).toContain('CreatedAt time.Time `json:"created_at,omitempty" db:"created_at" yaml:"createdAt,omitempty" bson:"created_at"`');
+    expect(out).toContain('CreatedAt time.Time `json:"created_at" db:"created_at" yaml:"createdAt" bson:"created_at"`');
+    expect(out).toContain('Name *string `json:"name,omitempty" db:"name" yaml:"name,omitempty" bson:"name"`');
     expect(out).toContain('Author *User `json:"author,omitempty" db:"-" yaml:"author,omitempty" bson:"-"`');
   });
 

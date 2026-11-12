@@ -22,7 +22,7 @@ export interface Config {
   fileName: string;
   package: string;
   structTags: StructTag[];
-  /** Tag keys that get `,omitempty` on optional and defaulted columns. */
+  /** Tag keys that get `,omitempty` on optional columns. */
   omitempty: ReadonlySet<string>;
   /** Go type overrides keyed by Prisma scalar (`Int`) or native type (`db.Uuid`). */
   types: Record<string, string>;

@@ -32,11 +32,11 @@ const (
 // Index: author_slug (authorId, slug)
 // Index: unique (authorId, slug)
 type Post struct {
-	Id        int64     `json:"id,omitempty" db:"id"` // primary key
+	Id        int64     `json:"id" db:"id"` // primary key
 	Slug      string    `json:"slug" db:"slug"`
 	Title     string    `json:"title" db:"title"`
-	Views     int32     `json:"views,omitempty" db:"views"`
-	Published bool      `json:"published,omitempty" db:"published"`
+	Views     int32     `json:"views" db:"views"`
+	Published bool      `json:"published" db:"published"`
 	AuthorId  uuid.UUID `json:"authorId" db:"author_id"`
 
 	// Relations (not persisted, populate manually)
@@ -46,7 +46,7 @@ type Post struct {
 
 // Tag represents the Tag table.
 type Tag struct {
-	Id   int32  `json:"id,omitempty" db:"id"` // primary key
+	Id   int32  `json:"id" db:"id"` // primary key
 	Name string `json:"name" db:"name"`
 
 	// Relations (not persisted, populate manually)
@@ -59,7 +59,7 @@ type Tag struct {
 type Membership struct {
 	UserId   uuid.UUID `json:"userId" db:"user_id"`
 	TeamName string    `json:"teamName" db:"team_name"`
-	JoinedAt time.Time `json:"joinedAt,omitempty" db:"joinedAt"`
+	JoinedAt time.Time `json:"joinedAt" db:"joinedAt"`
 
 	// Relations (not persisted, populate manually)
 	User *UserAccounts `json:"user,omitempty" db:"-"`
@@ -71,25 +71,25 @@ type Membership struct {
 // - emails are unique
 // - deleting an account deletes its profile
 type UserAccounts struct {
-	Id uuid.UUID `json:"id,omitempty" db:"id"` // primary key
+	Id uuid.UUID `json:"id" db:"id"` // primary key
 	// Login email.
 	// Lower-cased before it is stored.
 	Email       string           `json:"email" db:"email"`
 	DisplayName *string          `json:"displayName,omitempty" db:"display_name"`
-	Role        Role             `json:"role,omitempty" db:"role"`
+	Role        Role             `json:"role" db:"role"`
 	Status      *FDLStatus       `json:"status,omitempty" db:"status"`
 	Roles       []Role           `json:"roles" db:"roles"`
 	Tags        []string         `json:"tags" db:"tags"`
-	LoginCount  int32            `json:"loginCount,omitempty" db:"login_count"`
+	LoginCount  int32            `json:"loginCount" db:"login_count"`
 	Rating      *float32         `json:"rating,omitempty" db:"rating"`
-	Balance     string           `json:"balance,omitempty" db:"balance"`
+	Balance     string           `json:"balance" db:"balance"`
 	Quota       *int64           `json:"quota,omitempty" db:"quota"`
 	Avatar      *[]byte          `json:"avatar,omitempty" db:"avatar"`
-	Settings    json.RawMessage  `json:"settings,omitempty" db:"settings"`
+	Settings    json.RawMessage  `json:"settings" db:"settings"`
 	Metadata    *json.RawMessage `json:"metadata,omitempty" db:"metadata"`
 	LastIp      *string          `json:"lastIp,omitempty" db:"last_ip"`
 	BornOn      *time.Time       `json:"bornOn,omitempty" db:"bornOn"`
-	CreatedAt   time.Time        `json:"createdAt,omitempty" db:"created_at"`
+	CreatedAt   time.Time        `json:"createdAt" db:"created_at"`
 	UpdatedAt   time.Time        `json:"updatedAt" db:"updated_at"`
 	ManagerId   *uuid.UUID       `json:"managerId,omitempty" db:"manager_id"`
 
@@ -103,7 +103,7 @@ type UserAccounts struct {
 
 // Profile represents the Profile table.
 type Profile struct {
-	Id     int32     `json:"id,omitempty" db:"id"` // primary key
+	Id     int32     `json:"id" db:"id"` // primary key
 	Bio    *string   `json:"bio,omitempty" db:"bio"`
 	UserId uuid.UUID `json:"userId" db:"user_id"`
 
