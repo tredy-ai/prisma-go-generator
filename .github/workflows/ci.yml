@@ -1,6 +1,6 @@
 # Typecheck, unit tests, a real `prisma generate` over the test schema, and the examples:
 # regenerated, compared with what is committed, then compiled, vetted and tested with Go.
-# Runs on every pull request; release.yml calls it for each commit that lands on main.
+# Runs on every pull request; release-npm.yml calls it for each commit that lands on main.
 name: CI
 
 on:

@@ -1,5 +1,5 @@
 // Works out the next release version from the Conventional Commits merged since the last
-// vX.Y.Z tag. Run by .github/workflows/release.yml: prints the version, or nothing when no
+// vX.Y.Z tag. Run by .github/workflows/release-npm.yml: prints the version, or nothing when no
 // commit calls for a release.
 import { execFileSync } from 'node:child_process';
 

@@ -1,0 +1,105 @@
+# Publishes a tagged version to GitHub Packages and creates its GitHub release.
+#
+# Runs after "Publish to NPM" (release-npm.yml) finishes on main: if that run tagged its commit,
+# this publishes the tag. It can also be started by hand for an existing tag, to publish a
+# version this workflow missed:
+#   gh workflow run release-github.yml -f tag=v0.1.0
+#
+# npmjs.com is the package's public home. The copy on GitHub Packages is for setups whose .npmrc
+# sends the whole @tredy-ai scope to npm.pkg.github.com, where an npmjs-only package is not found.
+name: Publish to GitHub Package Registry
+
+on:
+  workflow_run:
+    workflows: [Publish to NPM]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to publish, for example v0.1.0
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-github
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash # explicit bash adds -o pipefail
+
+jobs:
+  release:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the GitHub release
+      packages: write # publish to GitHub Packages
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.event.workflow_run.head_sha }}
+          fetch-depth: 0 # with tags, to find the one on this commit
+
+      # No version tag on the commit means the npm workflow released nothing: stop here.
+      - name: Find the version tag
+        id: tag
+        run: |
+          tag=$(git tag --points-at HEAD --list 'v[0-9]*' | head -n 1)
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "${tag:-no version tag on this commit}"
+
+      - name: Setup pnpm
+        if: steps.tag.outputs.tag != ''
+        uses: pnpm/action-setup@v6
+        with:
+          version: 12.17.0
+
+      - name: Setup Node.js
+        if: steps.tag.outputs.tag != ''
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+          registry-url: https://npm.pkg.github.com
+          scope: '@tredy-ai'
+
+      - name: Install dependencies
+        if: steps.tag.outputs.tag != ''
+        run: pnpm install --frozen-lockfile
+
+      # package.json pins publishing to npmjs.com, so the registry is named here. A version that
+      # is already on GitHub Packages is left alone, so a run can be re-run.
+      - name: Publish to GitHub Packages
+        if: steps.tag.outputs.tag != ''
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          NODE_AUTH_TOKEN: ${{ github.token }}
+        run: |
+          npm pkg set version="${TAG#v}"
+          if out=$(npm publish --@tredy-ai:registry=https://npm.pkg.github.com 2>&1); then
+            echo "$out"
+            exit 0
+          fi
+          echo "$out"
+          if grep -qE 'previously published|over existing version|E409|EPUBLISHCONFLICT' <<<"$out"; then
+            echo "${TAG#v} is already on GitHub Packages"
+            exit 0
+          fi
+          exit 1
+
+      - name: Create the GitHub release
+        if: steps.tag.outputs.tag != ''
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "$TAG is already released"
+            exit 0
+          fi
+          gh release create "$TAG" --verify-tag --generate-notes

@@ -1,12 +1,16 @@
 # Every commit that lands on main is tested. If the Conventional Commits since the last vX.Y.Z
 # tag call for a release (fix: patch, feat: minor, "!" or BREAKING CHANGE: major), the package is
-# published to npm as @tredy-ai/prisma-go-generator and the commit is tagged.
+# published to npmjs.com as @tredy-ai/prisma-go-generator and the commit gets its vX.Y.Z tag.
+# release-github.yml takes over from that tag.
+#
+# npmjs.com trusts this workflow by its file name (trusted publishing): renaming the file means
+# updating the trusted publisher on npmjs.com first.
 #
 # The version lives in git tags. package.json is stamped with it at publish time and never
 # committed back, because CI cannot push to main.
 #
 # A commit message containing [ci skip] or [skip ci] stops GitHub from starting this workflow.
-name: Release
+name: Publish to NPM
 
 on:
   push:
@@ -15,9 +19,9 @@ on:
 permissions:
   contents: read
 
-# Back-to-back merges queue, so each run sees the tag the one before it pushed.
+# Back-to-back merges queue, so each run sees the tag the one before it created.
 concurrency:
-  group: release
+  group: release-npm
   cancel-in-progress: false
 
 defaults:
@@ -57,9 +61,8 @@ jobs:
     # npm's trusted publishing only accepts GitHub-hosted runners.
     runs-on: ubuntu-latest
     permissions:
-      contents: write # create the tag and the GitHub release
+      contents: write # create the version tag
       id-token: write # npm trusted publishing (OIDC) and provenance
-      packages: write # the copy on GitHub Packages
     env:
       VERSION: ${{ needs.version.outputs.version }}
     steps:
@@ -81,49 +84,37 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # `npm publish` builds dist/ through the prepack script and moves the `latest` dist-tag.
-      # Skipped when this version is already on npm, so a failed run can be re-run safely.
+      # `npm publish` builds dist/ through the prepack script, authenticates by OIDC and moves the
+      # `latest` dist-tag. Skipped when this version is already on npm, so a run can be re-run.
       - name: Publish to npm
-        env:
-          # npm prefers trusted publishing (OIDC) when the package has it configured. The token is
-          # only needed for the first publish, before the package exists; delete the secret after.
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          npm pkg set version="$VERSION"
-          if npm view "@tredy-ai/prisma-go-generator@$VERSION" version >/dev/null 2>&1; then
+          url="https://registry.npmjs.org/@tredy-ai%2fprisma-go-generator/$VERSION"
+          status=$(curl -sS -o "$RUNNER_TEMP/published.json" -w '%{http_code}' "$url")
+          if [ "$status" = 200 ]; then
             # Published but never tagged, and main has moved on: tagging this commit would be wrong.
-            published=$(npm view "@tredy-ai/prisma-go-generator@$VERSION" gitHead 2>/dev/null || true)
+            published=$(jq -r '.gitHead // ""' "$RUNNER_TEMP/published.json")
             if [ -n "$published" ] && [ "$published" != "$GITHUB_SHA" ]; then
               echo "::error::$VERSION is on npm, built from $published, but has no tag. Create the tag v$VERSION on that commit, then re-run."
               exit 1
             fi
-            echo "$VERSION is already published"
+            echo "$VERSION is already on npm"
             exit 0
           fi
+          if [ "$status" != 404 ]; then
+            echo "::error::could not tell whether $VERSION is on npm: $url answered $status"
+            exit 1
+          fi
+          npm pkg set version="$VERSION"
           npm publish # public, to npmjs.com: see publishConfig in package.json
 
-      # Tredy's own repositories, and machines set up for them, map the @tredy-ai scope to GitHub
-      # Packages, and a scope can only point at one registry. The same version goes there too, so
-      # those installs resolve. Skipped when it is already there, like the step above.
-      - name: Publish to GitHub Packages
-        env:
-          GITHUB_PACKAGES_TOKEN: ${{ github.token }}
-        run: |
-          scope=--@tredy-ai:registry=https://npm.pkg.github.com
-          npm config set //npm.pkg.github.com/:_authToken "$GITHUB_PACKAGES_TOKEN"
-          if npm view "@tredy-ai/prisma-go-generator@$VERSION" version "$scope" >/dev/null 2>&1; then
-            echo "$VERSION is already on GitHub Packages"
-            exit 0
-          fi
-          npm publish "$scope"
-
-      # Tag last, so a tag always points at a version that is on npm.
-      - name: Tag and create the GitHub release
+      # Tag last, so a tag always points at a version that is on npm. The tag is what the next
+      # run counts commits from, and what release-github.yml publishes.
+      - name: Tag
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view "v$VERSION" >/dev/null 2>&1; then
-            echo "v$VERSION is already released"
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$VERSION" >/dev/null 2>&1; then
+            echo "v$VERSION already exists"
             exit 0
           fi
-          gh release create "v$VERSION" --target "$GITHUB_SHA" --generate-notes
+          gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/v$VERSION" -f sha="$GITHUB_SHA" --silent

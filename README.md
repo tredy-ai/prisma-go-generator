@@ -296,20 +296,24 @@ Releases are cut by CI from commit messages. Nobody edits a version by hand.
    | `feat!:`, `fix!:`, or a `BREAKING CHANGE:` footer | major (minor while the version is below 1.0.0) |
    | `docs:`, `chore:`, `ci:`, `test:`, `refactor:`, anything else | none |
 
-3. `release.yml` runs the checks again on `main`, then works out the next version from every commit since the last `vX.Y.Z` tag, taking the largest bump.
-4. It publishes `@tredy-ai/prisma-go-generator` to npm with that version and the `latest` tag, then creates the `vX.Y.Z` tag and a GitHub release with generated notes.
+3. **Publish to NPM** (`release-npm.yml`) runs the checks again on `main`, then works out the next version from every commit since the last `vX.Y.Z` tag, taking the largest bump. It publishes `@tredy-ai/prisma-go-generator` to npm with that version and the `latest` tag, then creates the `vX.Y.Z` tag.
+4. **Publish to GitHub Package Registry** (`release-github.yml`) starts when that workflow succeeds. If the commit was tagged, it publishes the same version to GitHub Packages and creates a GitHub release with generated notes.
 
-The same version is also published to GitHub Packages. npmjs.com is the public home; the copy is for setups whose `.npmrc` sends the whole `@tredy-ai` scope to `npm.pkg.github.com`, where an npmjs-only package would not be found.
+npmjs.com is the public home. The copy on GitHub Packages is for setups whose `.npmrc` sends the whole `@tredy-ai` scope to `npm.pkg.github.com`, where an npmjs-only package would not be found.
 
-Put `[ci skip]` in the commit message to merge without starting the release workflow at all. GitHub does the skipping, and a commit marked that way is never counted towards a later release either.
+Put `[ci skip]` in the commit message to merge without starting the release workflows at all. GitHub does the skipping, and a commit marked that way is never counted towards a later release either.
 
 The version is kept in git tags. `package.json` says `0.0.0` in the repository and is stamped with the real version when the package is published, because CI cannot commit to `main`.
 
-A failed release can be re-run: publishing is skipped when the version is already on npm, and tagging when the release already exists.
+Either workflow can be re-run after a failure: each skips a version that is already on its registry, and a tag or release that already exists. To publish an existing tag to GitHub Packages by hand:
+
+```bash
+gh workflow run release-github.yml -f tag=v0.1.0
+```
 
 ### One-time setup
 
-- **npm.** The workflow publishes by [trusted publishing](https://docs.npmjs.com/trusted-publishers/), which needs the package to exist first. For the first release, add an npm access token that may publish to the `@tredy-ai` scope as the repository secret `NPM_TOKEN`. After that release, add a trusted publisher to the package on npmjs.com (organisation `tredy-ai`, repository `prisma-go-generator`, workflow `release.yml`) and delete the secret.
+- **npm.** `release-npm.yml` publishes by [trusted publishing](https://docs.npmjs.com/trusted-publishers/), with no token. The package on npmjs.com needs a trusted publisher for organisation `tredy-ai`, repository `prisma-go-generator`, workflow `release-npm.yml`, with direct `npm publish` allowed.
 - **GitHub.** The repository has to be public for npm to attach provenance.
 
 ## Acknowledgements
