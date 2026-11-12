@@ -16,9 +16,13 @@ export function renderEnum(e: DMMF.DatamodelEnum, cfg: Config): string {
   lines.push(`type ${name} ${cfg.enumType}`, '', 'const (');
   e.values.forEach((value, i) => {
     const constant = toEnumConstName(name, value.name, cfg.initialisms);
-    if (cfg.enumType === 'string') lines.push(`\t${constant} ${name} = ${JSON.stringify(value.dbName ?? value.name)}`);
-    else if (i === 0) lines.push(`\t${constant} ${name} = iota${cfg.enumStart > 0 ? ` + ${cfg.enumStart}` : ''}`);
-    else lines.push(`\t${constant}`);
+    const label = value.dbName ?? value.name;
+    // An integer constant carries its database label as a line comment, which `enumer -linecomment`
+    // (and stringer's) uses as the value's text. A label with a line break cannot be a line comment.
+    const comment = /[\r\n]/.test(label) ? '' : ` // ${label}`;
+    if (cfg.enumType === 'string') lines.push(`\t${constant} ${name} = ${JSON.stringify(label)}`);
+    else if (i === 0) lines.push(`\t${constant} ${name} = iota${cfg.enumStart > 0 ? ` + ${cfg.enumStart}` : ''}${comment}`);
+    else lines.push(`\t${constant}${comment}`);
   });
   lines.push(')');
   return lines.join('\n');

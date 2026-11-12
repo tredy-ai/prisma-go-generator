@@ -11,8 +11,8 @@ import (
 type Role int
 
 const (
-	RoleAdmin Role = iota
-	RoleUser
+	RoleAdmin Role = iota // ADMIN
+	RoleUser              // USER
 )
 
 // Models

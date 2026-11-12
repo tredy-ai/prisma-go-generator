@@ -25,7 +25,7 @@ type User struct {
 }
 ```
 
-With no options set, the output is what [prisma2go](https://github.com/tredy-ai/prisma2go) writes. Every decision prisma2go made for you is an option here.
+With no options set, the output is what [prisma2go](https://github.com/tredy-ai/prisma2go) writes, apart from a few [differences](#differences-from-prisma2go). Every decision prisma2go made for you is an option here.
 
 ## Status
 
@@ -157,17 +157,25 @@ By default an enum becomes an integer type with `iota` constants, and enumer sup
 type Role int
 
 const (
-	RoleAdmin Role = iota
-	RoleUser
+	RoleAdmin Role = iota // ADMIN
+	RoleUser              // USER
 )
 ```
+
+Each constant carries the value stored in the database (the `@map` name if there is one) as a line comment. With the default arguments enumer ignores it and names the values after the constants: `Admin`, `User`. Pass `-linecomment` instead of `-trimprefix={name}` and `String()`, `Value()`, `Scan` and the JSON and text methods use the database values, `ADMIN` and `USER`:
+
+```prisma
+enumerArgs = ["-json", "-sql", "-text", "-linecomment"]
+```
+
+If you set `enumDirective` yourself, put `-linecomment` there. stringer has the same flag.
 
 `enumStart` sets the value of the first constant, and the rest count up from it. With `enumStart = "1"` Go's zero value is not one of the enum's values, so an unset field can be told apart from the first value:
 
 ```go
 const (
-	RoleAdmin Role = iota + 1
-	RoleUser
+	RoleAdmin Role = iota + 1 // ADMIN
+	RoleUser                  // USER
 )
 ```
 
@@ -266,7 +274,10 @@ These are unchanged so that existing output does not move. Each can be worked ar
 - Names are not rewritten to Go initialisms unless you list them: `userId` becomes `UserId`, or `UserID` with `initialisms = ["ID"]`.
 - The first line of the file is directly above the package clause, so Go reads it as the package comment.
 
-One thing differs: when the generated code does not parse, prisma2go wrote it unformatted and warned. This generator stops with gofmt's error instead.
+### Differences from prisma2go
+
+- An integer enum constant ends in a line comment holding the value stored in the database. See [Enums](#enums).
+- When the generated code does not parse, prisma2go wrote it unformatted and warned. This generator stops with gofmt's error instead.
 
 ## Examples
 

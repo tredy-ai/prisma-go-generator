@@ -13,17 +13,17 @@ import (
 type Role int
 
 const (
-	RoleAdmin Role = iota
-	RoleSuperUser
-	RoleMemberOnly
+	RoleAdmin      Role = iota // ADMIN
+	RoleSuperUser              // super
+	RoleMemberOnly             // member_only
 )
 
 //go:generate enumer -type=FDLStatus -json -sql -text -trimprefix=FDLStatus
 type FDLStatus int
 
 const (
-	FDLStatusFdlStatusDraft FDLStatus = iota
-	FDLStatusFdlStatusApproved
+	FDLStatusFdlStatusDraft    FDLStatus = iota // FDL_STATUS_DRAFT
+	FDLStatusFdlStatusApproved                  // FDL_STATUS_APPROVED
 )
 
 // Models
