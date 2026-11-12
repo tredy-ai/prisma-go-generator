@@ -99,7 +99,7 @@ jobs:
             echo "$VERSION is already published"
             exit 0
           fi
-          npm publish --access public
+          npm publish # public, to npmjs.com: see publishConfig in package.json
 
       # Tag last, so a tag always points at a version that is on npm.
       - name: Tag and create the GitHub release

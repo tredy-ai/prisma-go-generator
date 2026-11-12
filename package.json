@@ -14,6 +14,10 @@
     "prisma-go-generator": "bin/prisma-go-generator.js"
   },
   "files": ["bin", "dist", "NOTICE"],
+  "publishConfig": {
+    "access": "public",
+    "@tredy-ai:registry": "https://registry.npmjs.org/"
+  },
   "engines": {
     "node": ">=20.19"
   },
