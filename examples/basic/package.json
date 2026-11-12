@@ -1,0 +1,11 @@
+{
+  "name": "example-basic",
+  "private": true,
+  "scripts": {
+    "generate": "prisma generate"
+  },
+  "devDependencies": {
+    "@tredy-ai/prisma-go-generator": "workspace:*",
+    "prisma": "7.10.1"
+  }
+}

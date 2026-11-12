@@ -1,0 +1,72 @@
+# Build, test and example tasks. CI runs `task ci`; run the same thing locally before pushing.
+#   task --list
+version: '3'
+
+set: [pipefail]
+
+tasks:
+  default:
+    silent: true
+    cmds:
+      - task --list
+
+  install:
+    desc: Install dependencies
+    cmds:
+      - pnpm install --frozen-lockfile
+
+  build:
+    desc: Compile the generator to dist/
+    cmds:
+      - pnpm build
+
+  typecheck:
+    desc: Typecheck the sources and the tests
+    cmds:
+      - pnpm typecheck
+
+  test:
+    desc: Unit tests, then the real `prisma generate` over test/e2e/schema (needs gofmt)
+    cmds:
+      - pnpm test
+
+  test:update:
+    desc: Rewrite test/e2e/expected from the current output (review the diff before committing)
+    cmds:
+      - pnpm build
+      - pnpm exec vitest run --update
+
+  test:go:
+    desc: Compile and vet what `task test` generated into test/e2e/out
+    deps: [test]
+    cmds:
+      - for: [defaults, custom, permodel, poststeps]
+        cmd: cd test/e2e/out/{{.ITEM}} && go mod tidy && go build ./... && go vet ./...
+
+  examples:
+    desc: Regenerate every example, then vet and test its Go code (needs enumer)
+    deps: [build]
+    cmds:
+      - pnpm -r --filter './examples/*' run generate
+      - for: [basic, crud-inputs]
+        cmd: cd examples/{{.ITEM}} && test -z "$(gofmt -l .)" && go vet ./... && go test ./...
+
+  examples:check:
+    desc: Fail if the committed examples differ from what the generator writes now
+    deps: [examples]
+    cmds:
+      - |
+        stale="$(git diff --name-only -- examples; git ls-files --others --exclude-standard -- examples)"
+        if [ -n "$stale" ]; then
+          echo "$stale"
+          git --no-pager diff -- examples
+          echo "examples are out of date: run 'task examples' and commit (or stage) the result" >&2
+          exit 1
+        fi
+
+  ci:
+    desc: Everything CI checks
+    cmds:
+      - task: typecheck
+      - task: test:go
+      - task: examples:check

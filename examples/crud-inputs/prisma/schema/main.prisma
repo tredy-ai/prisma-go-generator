@@ -1,0 +1,17 @@
+// A multi-file schema with the query input types switched on.
+// Output: ../../store, one Go file per model holding the struct and its inputs.
+
+generator go {
+  provider        = "prisma-go-generator"
+  output          = "../../store"
+  emitPerModel    = "true"
+  inputs          = ["where", "whereUnique", "orderBy", "create", "update"]
+  enumType        = "string"
+  initialisms     = ["ID"]
+  types           = ["Int=int", "db.Uuid=uuid.UUID"]
+  tableNameMethod = "true"
+}
+
+datasource db {
+  provider = "postgresql"
+}

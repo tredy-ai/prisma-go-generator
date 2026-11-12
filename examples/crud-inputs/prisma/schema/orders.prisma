@@ -1,0 +1,17 @@
+enum OrderStatus {
+  PENDING
+  PAID
+  REFUNDED
+}
+
+model Order {
+  id         Int         @id @default(autoincrement())
+  userId     String      @map("user_id") @db.Uuid
+  status     OrderStatus @default(PENDING)
+  totalCents Int         @map("total_cents")
+  note       String?
+  placedAt   DateTime    @default(now()) @map("placed_at")
+  user       User        @relation(fields: [userId], references: [id])
+
+  @@map("orders")
+}

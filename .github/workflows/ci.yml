@@ -1,0 +1,58 @@
+# Typecheck, unit tests, a real `prisma generate` over the test schema, and the examples:
+# regenerated, compared with what is committed, then compiled, vetted and tested with Go.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash # explicit bash adds -o pipefail
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 12.17.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      # The crud-inputs example and the e2e fixture import the standard library uuid package (Go 1.27).
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.27'
+          cache: false
+
+      - name: Setup Task
+        uses: go-task/setup-task@v2
+        with:
+          version: 3.54.0
+
+      - name: Install enumer
+        run: go install github.com/dmarkham/enumer@v1.6.3
+
+      - name: Install dependencies
+        run: task install
+
+      - name: Check
+        run: task ci

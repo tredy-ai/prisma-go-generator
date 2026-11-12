@@ -1,0 +1,6 @@
+packages:
+  - examples/*
+
+allowBuilds:
+  '@prisma/engines': true
+  prisma: true

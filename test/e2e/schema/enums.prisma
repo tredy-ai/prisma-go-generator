@@ -1,0 +1,11 @@
+/// Role of an account.
+enum Role {
+  ADMIN
+  SUPER_USER  @map("super")
+  member_only
+}
+
+enum FDLStatus {
+  FDL_STATUS_DRAFT
+  FDL_STATUS_APPROVED
+}

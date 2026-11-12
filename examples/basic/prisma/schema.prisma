@@ -1,0 +1,37 @@
+// The smallest useful setup: one generator block, every option left at its default.
+// Output: ../models/models.go, plus role_enumer.go written by enumer.
+
+generator go {
+  provider = "prisma-go-generator"
+  output   = "../models"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+/// A person who can sign in.
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String?
+  role      Role     @default(USER)
+  createdAt DateTime @default(now()) @map("created_at")
+  posts     Post[]
+
+  @@map("users")
+}
+
+model Post {
+  id       Int    @id @default(autoincrement())
+  title    String
+  authorId Int    @map("author_id")
+  author   User   @relation(fields: [authorId], references: [id])
+
+  @@map("posts")
+}

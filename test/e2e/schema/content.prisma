@@ -1,0 +1,30 @@
+model Post {
+  id        BigInt        @id @default(autoincrement())
+  slug      String
+  title     String
+  views     Int           @default(0) @db.SmallInt
+  published Boolean       @default(false)
+  authorId  String        @map("author_id") @db.Uuid
+  author    user_accounts @relation(fields: [authorId], references: [id])
+  tags      Tag[]
+
+  @@unique([authorId, slug], name: "author_slug")
+  @@index([published])
+}
+
+model Tag {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+  posts Post[]
+}
+
+/// Join row with a composite key.
+model Membership {
+  userId   String        @map("user_id") @db.Uuid
+  teamName String        @map("team_name")
+  joinedAt DateTime      @default(now())
+  user     user_accounts @relation(fields: [userId], references: [id])
+
+  @@id([userId, teamName])
+  @@unique([teamName, userId])
+}

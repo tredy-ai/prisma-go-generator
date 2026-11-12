@@ -1,0 +1,44 @@
+/// An account that can sign in.
+///
+/// Notes:
+/// - emails are unique
+/// - deleting an account deletes its profile
+model user_accounts {
+  id          String                   @id @default(uuid()) @db.Uuid
+  /// Login email.
+  /// Lower-cased before it is stored.
+  email       String                   @unique @db.VarChar(255)
+  displayName String?                  @map("display_name")
+  role        Role                     @default(member_only)
+  status      FDLStatus?
+  roles       Role[]
+  tags        String[]
+  loginCount  Int                      @default(0) @map("login_count")
+  rating      Float?                   @db.Real
+  balance     Decimal                  @default(0) @db.Decimal(12, 2)
+  quota       BigInt?
+  avatar      Bytes?
+  settings    Json                     @default("{}")
+  metadata    Json?                    @db.JsonB
+  lastIp      String?                  @map("last_ip") @db.Inet
+  bornOn      DateTime?                @db.Date
+  createdAt   DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime                 @updatedAt @map("updated_at")
+  managerId   String?                  @map("manager_id") @db.Uuid
+  search      Unsupported("tsvector")?
+
+  manager     user_accounts?  @relation("management", fields: [managerId], references: [id])
+  reports     user_accounts[] @relation("management")
+  profile     Profile?
+  posts       Post[]
+  memberships Membership[]
+
+  @@map("accounts")
+}
+
+model Profile {
+  id     Int           @id @default(autoincrement())
+  bio    String?       @db.Text
+  userId String        @unique @map("user_id") @db.Uuid
+  user   user_accounts @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

@@ -1,0 +1,64 @@
+// End-to-end fixture: every mapping the generator knows, run through three configurations.
+// `task test` runs the real `prisma generate` over this directory and compares the result with
+// test/e2e/expected.
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Nothing but the defaults (enumer and go.mod aside, so the output does not depend on local tools).
+generator defaults {
+  provider      = "node ./bin/prisma-go-generator.js"
+  output        = "../out/defaults"
+  enumer        = "false"
+  generateGoMod = "true"
+  goModule      = "example.com/e2e/defaults"
+  goVersion     = "1.27"
+}
+
+// Every option moved off its default, one file per .prisma file.
+generator custom {
+  provider        = "node ./bin/prisma-go-generator.js"
+  output          = "../out/custom"
+  package         = "store"
+  emitPerFile     = "true"
+  inputs          = "all"
+  structTags      = ["json:snake", "db", "yaml:camel"]
+  omitempty       = ["json", "yaml"]
+  types           = ["Int=int", "db.SmallInt=int16", "db.Uuid=uuid.UUID", "Decimal=github.com/shopspring/decimal.Decimal", "Json=map[string]any"]
+  optionalType    = "database/sql.Null"
+  enumType        = "string"
+  initialisms     = ["ID", "IP"]
+  tableNameMethod = "true"
+  generateGoMod   = "true"
+  goModule        = "example.com/e2e/custom"
+  goVersion       = "1.27"
+}
+
+// One file per model, a subset of the inputs, no relations, small integer enums.
+generator permodel {
+  provider      = "node ./bin/prisma-go-generator.js"
+  output        = "../out/permodel"
+  emitPerModel  = "true"
+  inputs        = ["where", "create"]
+  relations     = "false"
+  enumType      = "uint8"
+  enumDirective = "stringer -type={name}"
+  enumer        = "false"
+  types         = ["db.Uuid=string"]
+  generateGoMod = "true"
+  goModule      = "example.com/e2e/permodel"
+  goVersion     = "1.27"
+}
+
+// Post-generation steps: enumer when it is installed, then `go generate` over a directive that
+// leaves a marker file behind.
+generator poststeps {
+  provider      = "node ./bin/prisma-go-generator.js"
+  output        = "../out/poststeps"
+  enumDirective = "touch {name}.generated"
+  runGoGenerate = "true"
+  generateGoMod = "true"
+  goModule      = "example.com/e2e/poststeps"
+  goVersion     = "1.27"
+}

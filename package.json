@@ -1,0 +1,37 @@
+{
+  "name": "@tredy-ai/prisma-go-generator",
+  "version": "0.1.0",
+  "description": "Prisma generator that emits Go structs and enums from your Prisma schema",
+  "license": "MIT",
+  "author": "Tredy AI, Inc.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tredy-ai/prisma-go-generator.git"
+  },
+  "keywords": ["prisma", "generator", "prisma-generator", "go", "golang", "codegen", "structs"],
+  "type": "module",
+  "bin": {
+    "prisma-go-generator": "bin/prisma-go-generator.js"
+  },
+  "files": ["bin", "dist"],
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "tsc -p tsconfig.build.json && vitest run"
+  },
+  "dependencies": {
+    "@prisma/generator-helper": "^7.0.0"
+  },
+  "peerDependencies": {
+    "prisma": ">=7.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "prisma": "7.10.1",
+    "typescript": "7.0.2",
+    "vitest": "5.1.0"
+  }
+}

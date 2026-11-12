@@ -1,0 +1,40 @@
+{
+  "enums": [
+    {
+      "name": "Role",
+      "values": [
+        { "name": "ADMIN", "dbName": null },
+        { "name": "USER", "dbName": null }
+      ],
+      "dbName": null
+    }
+  ],
+  "models": [
+    {
+      "name": "User",
+      "dbName": "users",
+      "fields": [
+        { "name": "id", "kind": "scalar", "type": "Int", "isId": true, "isRequired": true, "isList": false, "hasDefaultValue": true },
+        { "name": "email", "kind": "scalar", "type": "String", "isRequired": true, "isList": false, "isUnique": true },
+        { "name": "name", "kind": "scalar", "type": "String", "isRequired": false, "isList": false },
+        { "name": "role", "kind": "enum", "type": "Role", "isRequired": true, "isList": false },
+        { "name": "createdAt", "kind": "scalar", "type": "DateTime", "dbName": "created_at", "isRequired": true, "isList": false, "hasDefaultValue": true },
+        { "name": "posts", "kind": "object", "type": "Post", "isList": true, "isRequired": true, "relationName": "UserPosts" }
+      ],
+      "uniqueIndexes": [{ "name": "User_email_key", "fields": ["email"] }]
+    },
+    {
+      "name": "Post",
+      "dbName": null,
+      "fields": [
+        { "name": "id", "kind": "scalar", "type": "Int", "isId": true, "isRequired": true, "isList": false, "hasDefaultValue": true },
+        { "name": "title", "kind": "scalar", "type": "String", "isRequired": true, "isList": false },
+        { "name": "content", "kind": "scalar", "type": "String", "isRequired": false, "isList": false },
+        { "name": "published", "kind": "scalar", "type": "Boolean", "isRequired": true, "isList": false, "hasDefaultValue": true },
+        { "name": "authorId", "kind": "scalar", "type": "Int", "dbName": "author_id", "isRequired": true, "isList": false },
+        { "name": "author", "kind": "object", "type": "User", "isList": false, "isRequired": true, "relationName": "UserPosts" }
+      ]
+    }
+  ],
+  "types": []
+}
